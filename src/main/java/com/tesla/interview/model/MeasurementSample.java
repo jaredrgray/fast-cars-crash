@@ -15,11 +15,15 @@ public class MeasurementSample {
   /**
    * Serialize a {@link MeasurementSample} from a String.
    * 
-   * @param s string to serialize
+   * @param sampleString string to serialize
    * @return corresponding {@link MeasurementSample}
    */
-  public static MeasurementSample fromString(String s) {
-    String[] fields = s.split(FIELD_SEPARATOR);
+  public static MeasurementSample fromString(String sampleString) {
+    if (sampleString == null || sampleString.isEmpty()) {
+      throw new IllegalArgumentException("sampleString cannot be empty");
+    }
+
+    String[] fields = sampleString.split(FIELD_SEPARATOR);
     if (fields.length < 3) {
       throw new IllegalArgumentException("Incomplete sample provided");
     }

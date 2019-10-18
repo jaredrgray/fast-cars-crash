@@ -28,7 +28,7 @@ public class AggregateSampleWriter implements Closeable {
     if (fileToWrite == null) {
       throw new IllegalArgumentException("fileToWrite cannot be null");
     }
-    if (fileToWrite.exists() || !fileToWrite.canWrite()) {
+    if (fileToWrite.exists()) {
       throw new IllegalArgumentException("fileToWrite must be a new, writable file");
     }
 

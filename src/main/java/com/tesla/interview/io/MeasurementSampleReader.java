@@ -16,7 +16,6 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
 
   private static final Logger LOG = getLogger(AggregateSampleWriter.class);
 
-  private volatile boolean hasNext;
   private volatile int lineNo;
   private final String path;
   private final BufferedReader reader;
@@ -36,9 +35,6 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
 
     try {
       reader = Files.newReader(sampleFile, StandardCharsets.UTF_8);
-      reader.mark(1 /* readAheadLimit */);
-      hasNext = reader.read() != -1;
-      reader.reset();
     } catch (IOException e) {
       throw new IllegalStateException("Unexpected error while opening file", e);
     }
@@ -60,7 +56,16 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
 
   @Override
   public boolean hasNext() {
-    return this.hasNext;
+    try {
+      reader.mark(1 /* readAheadLimit */);
+      boolean hasNext = reader.read() != -1;
+      reader.reset();
+      return hasNext;
+    } catch (IOException e) {
+      String exceptionMessage = String
+          .format("Unexpected error while closing file -- filePath: %s, lineNo: %d", path, lineNo);
+      throw new IllegalStateException(exceptionMessage, e);
+    }
   }
 
   @Override
@@ -69,8 +74,10 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
       String nextLine = reader.readLine();
       this.lineNo++;
       return MeasurementSample.fromString(nextLine);
-    } catch (Exception e) {
-      throw new IllegalStateException("Unexpected error while reading file at line " + lineNo, e);
+    } catch (IOException e) {
+      String exceptionMessage = String
+          .format("Unexpected error while closing file -- filePath: %s, lineNo: %d", path, lineNo);
+      throw new IllegalStateException(exceptionMessage, e);
     }
 
   }

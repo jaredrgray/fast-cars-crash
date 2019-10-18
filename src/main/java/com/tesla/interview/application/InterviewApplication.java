@@ -100,15 +100,20 @@ public class InterviewApplication implements Callable<Void> {
   @Override
   public Void call() {
     // spawn all writes
+    LOG.info("starting application");
     Queue<Future<Void>> q = new ArrayDeque<>();
     while (reader.hasNext()) {
       MeasurementSample nextSample = reader.next();
       AggregateSample aggregate = aggregateMeasurement(nextSample);
-      int theadNo =
-          partitionNoToThreadNo.getOrDefault(aggregate.getPartitionNo(), -1 /* defaultValue */);
-      AsynchronousWriter writer = threadNoToWriter.getOrDefault(theadNo, null /* defaultValue */);
+      int partitionNo = aggregate.getPartitionNo() - 1;
+      int threadNo = partitionNoToThreadNo.getOrDefault(partitionNo, -1 /* defaultValue */);
+      AsynchronousWriter writer = threadNoToWriter.getOrDefault(threadNo, null /* defaultValue */);
       if (writer != null) {
         q.add(writer.writeSample(aggregate));
+      } else {
+        throw new IllegalStateException(
+            String.format("Unexpected error: no writer found -- partitionNo: %s, threadNo: %d",
+                partitionNo, threadNo));
       }
     }
 
