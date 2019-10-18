@@ -15,10 +15,10 @@ public enum IntegerHashtag {
   TEN("#ten", 10) //
   ;
 
-  /** string representation of the hashtag. */
+  /** String representation of the hashtag. */
   private final String tag;
 
-  /** integer representation of the hashtag's value. */
+  /** Integer representation of the hashtag's value. */
   private final int value;
 
   private IntegerHashtag(String tag, int value) {
