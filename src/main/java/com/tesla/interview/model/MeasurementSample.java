@@ -2,7 +2,7 @@ package com.tesla.interview.model;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-import java.util.EnumSet;
+import com.google.common.collect.Sets;
 import java.util.Set;
 import org.apache.logging.log4j.Logger;
 
@@ -32,28 +32,32 @@ public class MeasurementSample {
     final long timestamp;
     final int partitionNo;
     final String id;
-    final Set<IntegerHashtag> hashtags = EnumSet.noneOf(IntegerHashtag.class);
+    final Set<IntegerHashtag> hashtags = Sets.newHashSet();
 
     try {
       timestamp = Long.parseLong(fields[0]);
     } catch (RuntimeException e) {
-      throw new IllegalArgumentException("First field (timestamp) was not a number");
+      throw new IllegalArgumentException("First field (timestamp) must be a number");
     }
 
     try {
       partitionNo = Integer.parseInt(fields[1]);
     } catch (RuntimeException e) {
-      throw new IllegalArgumentException("Second field (partitionNo) was not a number");
+      throw new IllegalArgumentException("Second field (partitionNo) must be a numberr");
     }
 
     id = fields[2];
     if (id.isEmpty()) {
-      throw new IllegalArgumentException("Third field (id) was empty/missing");
+      throw new IllegalArgumentException("Third field (id) cannot be empty");
+    }
+    
+    if (fields.length < 4) {
+      throw new IllegalArgumentException("Fourth field (hashtags) cannot be empty");
     }
 
     for (int i = 3; i < fields.length; i++) {
       try {
-        IntegerHashtag hashtag = IntegerHashtag.valueOf(fields[i]);
+        IntegerHashtag hashtag = IntegerHashtag.fromTag(fields[i]);
         hashtags.add(hashtag);
       } catch (RuntimeException e) {
         // we ignore anything that is invalid rather than blow up the application
@@ -66,18 +70,15 @@ public class MeasurementSample {
   }
 
   private final long timestamp;
-
   private final int partitionNo;
-
   private final String id;
-
   private final Set<IntegerHashtag> hashtags;
 
   /**
    * Constructor.
    * 
    * @param timestamp number of milliseconds since January 1, 1970:UTC
-   * @param partitionNo TODO (I really can't define this based on specification provided)
+   * @param partitionNo TODO (I can't define this well based on specification provided)
    * @param id unique identifier
    * @param hashtags tags associated with this sample
    */

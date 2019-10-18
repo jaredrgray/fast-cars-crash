@@ -1,7 +1,10 @@
 package com.tesla.interview.model;
 
-public enum IntegerHashtag {
+import com.google.common.collect.Maps;
+import java.util.Map;
 
+public enum IntegerHashtag {
+  
   /* empty comments present below to please the code formatter */
   ONE("#one", 1), //
   TWO("#two", 2), //
@@ -14,7 +17,23 @@ public enum IntegerHashtag {
   NINE("#nine", 9), //
   TEN("#ten", 10) //
   ;
-
+  
+  private static final Map<String, IntegerHashtag> tagToEnum;
+  static {
+    tagToEnum = Maps.newHashMap();
+    for (IntegerHashtag e : IntegerHashtag.values()) {
+      tagToEnum.put(e.getTag(), e);
+    }
+  }
+  
+  public static IntegerHashtag fromTag(String tag) {
+    if (tagToEnum.containsKey(tag)) {
+      return tagToEnum.get(tag);
+    } else {
+      throw new IllegalArgumentException("No such tag: " + tag);
+    }
+  }
+  
   /** String representation of the hashtag. */
   private final String tag;
 
