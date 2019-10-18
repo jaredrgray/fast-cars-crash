@@ -1,5 +1,7 @@
 package com.tesla.interview.io;
 
+import static org.apache.logging.log4j.LogManager.getLogger;
+
 import com.google.common.io.Files;
 import com.tesla.interview.model.MeasurementSample;
 import java.io.BufferedReader;
@@ -8,20 +10,23 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
+import org.apache.logging.log4j.Logger;
 
-public class SampleReader implements Closeable, Iterator<MeasurementSample> {
+public class MeasurementSampleReader implements Closeable, Iterator<MeasurementSample> {
 
-  private final BufferedReader reader;
+  private static final Logger LOG = getLogger(AggregateSampleWriter.class);
 
   private volatile boolean hasNext;
-  private volatile int lineNo = 1;
+  private volatile int lineNo;
+  private final String path;
+  private final BufferedReader reader;
 
   /**
    * Constructor.
    * 
    * @param sampleFile file whose samples to read
    */
-  public SampleReader(File sampleFile) {
+  public MeasurementSampleReader(File sampleFile) {
     if (sampleFile == null) {
       throw new IllegalArgumentException("sampleFile cannot be null");
     }
@@ -35,14 +40,21 @@ public class SampleReader implements Closeable, Iterator<MeasurementSample> {
       hasNext = reader.read() != -1;
       reader.reset();
     } catch (IOException e) {
-      throw new IllegalStateException("Unexpected error while reading file", e);
+      throw new IllegalStateException("Unexpected error while opening file", e);
     }
+
+    this.lineNo = 1;
+    this.path = sampleFile.getPath();
   }
 
   @Override
-  public void close() throws IOException {
-    if (reader != null) {
+  public void close() {
+    try {
       reader.close();
+    } catch (IOException e) {
+      String logMessage = String
+          .format("Unexpected error while closing file -- filePath: %s, lineNo: %d", path, lineNo);
+      LOG.error(logMessage);
     }
   }
 
