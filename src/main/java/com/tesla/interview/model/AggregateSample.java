@@ -5,23 +5,24 @@ package com.tesla.interview.model;
  */
 public class AggregateSample {
 
-  private final long timestamp;
-
-  private final String id;
-
   private final int aggregateValue;
+  private final String id;
+  private final int partitionNo;
+  private final long timestamp;
 
   /**
    * Constructor.
    * 
-   * @param timestamp number of milliseconds since January 1, 1970:UTC
-   * @param id unique identifier for the asset
    * @param aggregateValue aggregation value of constituent samples
+   * @param id unique identifier for the asset
+   * @param partitionNo TODO (need better description from specification)
+   * @param timestamp number of milliseconds since January 1, 1970:UTC
    */
-  public AggregateSample(long timestamp, String id, int aggregateValue) {
-    this.timestamp = timestamp;
-    this.id = id;
+  public AggregateSample(int aggregateValue, String id, int partitionNo, long timestamp) {
     this.aggregateValue = aggregateValue;
+    this.id = id;
+    this.partitionNo = partitionNo;
+    this.timestamp = timestamp;
   }
 
   public int getAggregateValue() {
@@ -30,6 +31,10 @@ public class AggregateSample {
 
   public String getId() {
     return id;
+  }
+
+  public int getPartitionNo() {
+    return partitionNo;
   }
 
   public long getTimestamp() {
