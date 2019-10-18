@@ -1,4 +1,4 @@
-package org.tesla.interview.model;
+package com.tesla.interview.model;
 
 /**
  * An aggregation of several {@link MeasurementSample} instances.
