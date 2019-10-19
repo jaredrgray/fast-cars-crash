@@ -43,7 +43,7 @@ public class AggregateSampleWriter implements Closeable {
    * @param mock mock or stub of writer
    * @return custom instance with mock and/or stub injected
    */
-  public static AggregateSampleWriter withWriterMock(BufferedWriter mock) {
+  static AggregateSampleWriter withWriterMock(BufferedWriter mock) {
     return new AggregateSampleWriter(mock, -1 /* lineno */, null /* path */);
   }
   

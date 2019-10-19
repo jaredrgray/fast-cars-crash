@@ -111,6 +111,18 @@ public class TestMeasurementSample {
         "1505233687037,2,345f7eb1-bf33-40c1-82a4-2f91c658803f,",
         IllegalArgumentException.class, 
         "cannot be empty"
+    ), EMPTY_SAMPLE(
+        "",
+        IllegalArgumentException.class, 
+        "cannot be empty"
+    ), MISSING_SAMPLE(
+        null,
+        IllegalArgumentException.class, 
+        "cannot be empty"
+    ), MISSING_FIELDS(
+        "1505233687037,2",
+        IllegalArgumentException.class, 
+        "Incomplete sample"
     ),
     ;
     // @formatter:on

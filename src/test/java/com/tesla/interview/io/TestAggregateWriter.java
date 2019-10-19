@@ -123,4 +123,45 @@ public class TestAggregateWriter {
     file.delete();
   }
 
+  @Test
+  void testWriteSucceedsWithMultipleWrites() throws IOException {
+    final String methodName = "testWriteSucceedsWithMultipleWrites";
+    String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
+    File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+
+    BufferedWriter writerSpy =
+        spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
+    AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
+    AggregateSample sampleMock = mock(AggregateSample.class);
+
+    for (int i = 0; i < 10; i++) {
+      String dataToWrite = "POOP" + i;
+      doReturn(dataToWrite).when(sampleMock).toString();
+      underTest.writeSample(sampleMock);
+      verify(writerSpy).write(eq(dataToWrite));
+    }
+
+    underTest.close();
+    file.delete();
+  }
+
+  @Test
+  void testFromFileSucceedsWithNewFile() throws IOException {
+    final String methodName = "testWriteSucceedsWithMultipleWrites";
+    String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
+    File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+    file.delete();
+
+    AggregateSampleWriter underTest = null;
+    try {
+      underTest = AggregateSampleWriter.fromFile(file);
+      assertTrue(file.exists());
+    } finally {
+      if (underTest != null) {
+        underTest.close();
+      }
+      file.delete();
+    }
+  }
+
 }

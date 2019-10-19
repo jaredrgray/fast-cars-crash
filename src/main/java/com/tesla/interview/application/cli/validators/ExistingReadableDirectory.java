@@ -10,7 +10,8 @@ public class ExistingReadableDirectory implements IValueValidator<String> {
   @Override
   public void validate(String name, String value) throws ParameterException {
     if (value != null) {
-      validatePath(name, Paths.get(value));
+      Path path = Paths.get(value);
+      validatePath(name, path);
     } else {
       throw new ParameterException(String.format("%s cannot be null", name));
     }

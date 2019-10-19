@@ -7,6 +7,8 @@ import static org.mockito.Mockito.when;
 
 import com.beust.jcommander.ParameterException;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +36,19 @@ public class TestExistingReadableFile {
       fail("Expected ParameterException");
     } catch (ParameterException e) {
       assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
+    }
+  }
+
+  @Test
+  public void testExistingFileSucceeds() throws IOException {
+    String methodName = "testExistingValueSucceeds";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+    Path created = Files.createTempFile(filePrefix, null /* suffix */);
+    ExistingReadableFile underTest = new ExistingReadableFile();
+    try {
+      underTest.validate(PARAM_NAME, created.toString());
+    } finally {
+      created.toFile().delete();
     }
   }
 
