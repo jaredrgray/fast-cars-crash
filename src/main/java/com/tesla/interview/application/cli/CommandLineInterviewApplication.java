@@ -3,6 +3,7 @@ package com.tesla.interview.application.cli;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.internal.Console;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 import com.tesla.interview.application.InterviewApplication;
 import java.nio.file.Path;
@@ -14,22 +15,42 @@ public class CommandLineInterviewApplication {
   private static final String OUTPUT_FILE_FORMAT = "output-file-%d.csv";
 
   /**
+   * Build a list of output files.
+   * <p>
+   * Package-visible for unit tests.
+   * </p>
+   * 
+   * @param numPartitions number of partitions
+   * @param outputDirectory non-null path to output directory
+   * @return list of output files within the output directory
+   */
+  static List<String> getOutputFiles(int numPartitions, Path outputDirectory) {
+    List<String> outputFilePaths = Lists.newArrayList();
+    for (int i = 1; i <= numPartitions; i++) {
+      String outputFileName = String.format(OUTPUT_FILE_FORMAT, i);
+      Path outputFilePath = outputDirectory.resolve(outputFileName);
+      outputFilePaths.add(outputFilePath.toString());
+    }
+    return outputFilePaths;
+  }
+
+  /**
    * Run the application from the command line.
    * 
    * @param args command-line arguments
    */
   public static void main(String[] args) {
-    CommandLineInterviewApplication app = new CommandLineInterviewApplication(args);
+    CommandLineInterviewApplication cliApp = new CommandLineInterviewApplication(args);
     try {
-      app.commander.parse(args);
-      app.execute();
+      InterviewApplication app = cliApp.toInterviewApplication();
+      app.call();
     } catch (ParameterException e) {
-      app.commander.usage();
-      app.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
+      cliApp.commander.usage();
+      cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
     } catch (RuntimeException e) {
-      app.commander.usage();
-      app.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
-      printTrace(app.commander.getConsole(), e);
+      cliApp.commander.usage();
+      cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
+      printTrace(cliApp.commander.getConsole(), e);
     }
   }
 
@@ -51,35 +72,67 @@ public class CommandLineInterviewApplication {
   }
 
   private final JCommander commander;
-  private final CommandLineArgs parsedArguments;
+
+  private CommandLineArgs parsedArguments;
 
   /**
    * Constructor.
+   * <p>
+   * Package-visible for unit tests.
+   * </p>
    * 
    * @param args command-line arguments
    */
-  private CommandLineInterviewApplication(String[] args) {
-    parsedArguments = new CommandLineArgs();
-    commander = new JCommander(parsedArguments);
+  public CommandLineInterviewApplication(String[] args) {
+    this.commander = new JCommander();
+    CommandLineArgs parsedArguments = new CommandLineArgs();
+    commander.parse(args);
+    validateArgs(parsedArguments);
+    this.parsedArguments = parsedArguments;
   }
 
-  private void execute() {
-    if (!parsedArguments.isHelpCommand) {
-      // build output file list
-      Path outputDirectory = Paths.get(parsedArguments.outputDirectory);
-      List<String> outputFilePaths = Lists.newArrayList();
-      for (int i = 1; i <= parsedArguments.numPartitions; i++) {
-        String outputFileName = String.format(OUTPUT_FILE_FORMAT, i);
-        Path outputFilePath = outputDirectory.resolve(outputFileName);
-        outputFilePaths.add(outputFilePath.toString());
-      }
+  CommandLineInterviewApplication(CommandLineArgs args) {
+    this(new JCommander(args), args);
+  }
 
-      // construct app
-      InterviewApplication app = new InterviewApplication(parsedArguments.numWriteThreads,
+  CommandLineInterviewApplication(JCommander commander, CommandLineArgs args) {
+    this.commander = commander;
+    validateArgs(args);
+    this.parsedArguments = args;
+
+  }
+
+  protected class AppFactory implements Supplier<InterviewApplication> {
+
+    @Override
+    public InterviewApplication get() {
+      Path outputDirectory = Paths.get(parsedArguments.outputDirectory);
+      List<String> outputFilePaths = getOutputFiles(parsedArguments.numPartitions, outputDirectory);
+      return new InterviewApplication(parsedArguments.numWriteThreads,
           Integer.MAX_VALUE /* TODO: maxFileHandles */, outputFilePaths, parsedArguments.inputFile);
-      app.call();
+    }
+
+  };
+  
+  protected AppFactory appFactory = new AppFactory();
+
+  InterviewApplication toInterviewApplication() {
+    if (!parsedArguments.isHelpCommand) {
+      return appFactory.get();
     } else {
+      // just displaying help -- don't give back an apps
       commander.usage();
+      return null;
     }
   }
+
+  public void validateArgs(CommandLineArgs parsedArguments) {
+    if (parsedArguments.outputDirectory == null) {
+      throw new ParameterException("outputDirectory cannot be null");
+    }
+    if (parsedArguments.inputFile == null) {
+      throw new ParameterException("inputFile cannot be null");
+    }
+  }
+
 }

@@ -61,13 +61,13 @@ public class InterviewApplication implements Callable<Void> {
     if (maxFileHandles <= 0) {
       throw new IllegalArgumentException("maxFileHandles must be positive");
     }
-    if (maxFileHandles <= numWriteThreads) {
+    if (maxFileHandles < numWriteThreads) {
       throw new IllegalArgumentException("maxFileHandles must be at least numWriteThreads");
     }
     if (outputFilePaths == null || outputFilePaths.isEmpty()) {
       throw new IllegalArgumentException("outputFilePaths must be non-empty");
     }
-    if (outputFilePaths.size() <= numWriteThreads) {
+    if (outputFilePaths.size() < numWriteThreads) {
       throw new IllegalArgumentException(
           "outputFilePaths must contain at least numWriteThreads paths");
     }
