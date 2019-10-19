@@ -1,10 +1,12 @@
 package com.tesla.interview.application.cli;
 
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.tesla.interview.application.cli.validators.ExistingReadableDirectory;
 import com.tesla.interview.application.cli.validators.ExistingReadableFile;
 import com.tesla.interview.application.cli.validators.RequiredPositiveInteger;
 
+@Parameters(separators = " =")
 public class CommandLineArgs {
 
   @Parameter(names = {"--numPartitions", "-p"},

@@ -64,16 +64,33 @@ public class CommandLineInterviewApplication {
     }
   }
 
-  private static void printTrace(Console console, Throwable th) {
+  /**
+   * Print a stack trace of the input exception to the provided console.
+   * <p>
+   * Package-visible for unit tests.
+   * </p>
+   * @param console console to which to print
+   * @param th exception to trace
+   */
+  static void printTrace(Console console, Throwable th) {
+
+    // get outermost exception
     if (th.getCause() == null) {
-      // print trace of outermost exception
       console.println("Stack trace:");
       StackTraceElement[] elements = th.getStackTrace();
       int numDigits = String.valueOf(elements.length).length();
+
+      // print to console
       String depthFormat = "%" + "0" + numDigits + "d";
       for (int i = 1; i <= elements.length; i++) {
         String depth = String.format(depthFormat, i);
-        console.println(depth + ": " + elements[i - 1].toString());
+        // @formatter:off
+        console.println(new StringBuilder()
+            .append(depth)
+            .append(": ")
+            .append(elements[i - 1].toString())
+            .toString());
+        // @formatter:on
       }
     } else {
       // recurse
@@ -84,8 +101,7 @@ public class CommandLineInterviewApplication {
   protected AppFactory appFactory = new AppFactory();
 
   private final JCommander commander;
-
-  private CommandLineArgs parsedArguments;
+  private final CommandLineArgs parsedArguments;
 
   CommandLineInterviewApplication(CommandLineArgs args) {
     this(new JCommander(args), args);
@@ -109,6 +125,7 @@ public class CommandLineInterviewApplication {
   public CommandLineInterviewApplication(String[] args) {
     this.commander = new JCommander();
     CommandLineArgs parsedArguments = new CommandLineArgs();
+    commander.addObject(parsedArguments);
     commander.parse(args);
     validateArgs(parsedArguments);
     this.parsedArguments = parsedArguments;

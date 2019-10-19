@@ -30,7 +30,6 @@ public class TestMeasurementReader {
 
   private static final String UNEXPECTED_ERROR_WHILE_READING = "Unexpected error while reading";
 
-
   @Test
   void testConstructorSucceedsWithExistingFile() throws IOException {
     String methodName = "testConstructorSucceedsWithExistingFile";
