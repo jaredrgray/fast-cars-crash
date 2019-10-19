@@ -28,6 +28,9 @@ import org.junit.jupiter.api.Test;
 
 public class TestMeasurementReader {
 
+  private static final String UNEXPECTED_ERROR_WHILE_READING = "Unexpected error while reading";
+
+
   @Test
   void testConstructorSucceedsWithExistingFile() throws IOException {
     String methodName = "testConstructorSucceedsWithExistingFile";
@@ -217,4 +220,50 @@ public class TestMeasurementReader {
     }
   }
 
+
+  @Test
+  void testFailureWhenHasNextThrows() throws IOException {
+    String methodName = "testFailureWhenHasNextThrows";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+
+    BufferedReader reader =
+        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
+    BufferedReader readerSpy = spy(reader);
+
+    when(readerSpy.read()).thenThrow(new IOException());
+    MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
+    try {
+      underTest.hasNext();
+      fail("Expected IllegalStateException");
+    } catch (IllegalStateException e) {
+      assertTrue(e.getMessage().contains(UNEXPECTED_ERROR_WHILE_READING));
+    } finally {
+      underTest.close();
+      sampleFile.delete();
+    }
+  }
+  
+  @Test
+  void testFailureWhenNextThrows() throws IOException {
+    String methodName = "testFailureWhenNextThrows";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+
+    BufferedReader reader =
+        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
+    BufferedReader readerSpy = spy(reader);
+
+    when(readerSpy.readLine()).thenThrow(new IOException());
+    MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
+    try {
+      underTest.next();
+      fail("Expected IllegalStateException");
+    } catch (IllegalStateException e) {
+      assertTrue(e.getMessage().contains(UNEXPECTED_ERROR_WHILE_READING));
+    } finally {
+      underTest.close();
+      sampleFile.delete();
+    }
+  }
 }
