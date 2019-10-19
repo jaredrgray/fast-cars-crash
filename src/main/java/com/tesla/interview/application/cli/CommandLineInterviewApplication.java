@@ -24,6 +24,16 @@ public class CommandLineInterviewApplication {
 
   private static final String OUTPUT_FILE_FORMAT = "output-file-%d.csv";
 
+  static void executeWrapper(CommandLineInterviewApplication cliApp) {
+    try {
+      cliApp.execute();
+    } catch (RuntimeException e) {
+      cliApp.commander.usage();
+      cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
+      printTrace(cliApp.commander.getConsole(), e);
+    }
+  }
+
   /**
    * Build a list of output files.
    * <p>
@@ -50,18 +60,7 @@ public class CommandLineInterviewApplication {
    * @param args command-line arguments
    */
   public static void main(String[] args) {
-    CommandLineInterviewApplication cliApp = new CommandLineInterviewApplication(args);
-    try {
-      InterviewApplication app = cliApp.toInterviewApplication();
-      app.call();
-    } catch (ParameterException e) {
-      cliApp.commander.usage();
-      cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
-    } catch (RuntimeException e) {
-      cliApp.commander.usage();
-      cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
-      printTrace(cliApp.commander.getConsole(), e);
-    }
+    executeWrapper(new CommandLineInterviewApplication(args));
   }
 
   /**
@@ -69,6 +68,7 @@ public class CommandLineInterviewApplication {
    * <p>
    * Package-visible for unit tests.
    * </p>
+   * 
    * @param console console to which to print
    * @param th exception to trace
    */
@@ -109,43 +109,39 @@ public class CommandLineInterviewApplication {
 
   CommandLineInterviewApplication(JCommander commander, CommandLineArgs args) {
     this.commander = commander;
-    validateArgs(args);
     this.parsedArguments = args;
+    validateArgs();
+  }
 
+  CommandLineInterviewApplication(JCommander commander, String[] args) {
+    this.commander = commander;
+    this.parsedArguments = new CommandLineArgs();
+    commander.addObject(parsedArguments);
+    commander.parse(args);
+    validateArgs();
   }
 
   /**
-   * Constructor.
-   * <p>
-   * Package-visible for unit tests.
-   * </p>
+   * Primary constructor.
    * 
    * @param args command-line arguments
    */
   public CommandLineInterviewApplication(String[] args) {
-    this.commander = new JCommander();
-    CommandLineArgs parsedArguments = new CommandLineArgs();
-    commander.addObject(parsedArguments);
-    commander.parse(args);
-    validateArgs(parsedArguments);
-    this.parsedArguments = parsedArguments;
+    this(new JCommander(), args);
   }
 
   /**
-   * Convert our parsed commands to an application.
-   * <p>
-   * Package-visible for unit tests.
-   * </p>
-   * 
-   * @return the application
+   * Execute this application.
    */
-  InterviewApplication toInterviewApplication() {
+  void execute() {
     if (!parsedArguments.isHelpCommand) {
-      return appFactory.get();
+      InterviewApplication app = appFactory.get();
+      if (app != null) {
+        app.call();
+      }
     } else {
       // just displaying help -- don't give back an apps
       commander.usage();
-      return null;
     }
   }
 
@@ -155,7 +151,7 @@ public class CommandLineInterviewApplication {
    * @param parsedArguments arguments to validate
    * @throws ParameterException if arguments are invalid
    */
-  private void validateArgs(CommandLineArgs parsedArguments) {
+  void validateArgs() {
     if (parsedArguments.outputDirectory == null) {
       throw new ParameterException("outputDirectory cannot be null");
     }

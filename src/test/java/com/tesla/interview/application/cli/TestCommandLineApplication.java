@@ -1,15 +1,18 @@
 package com.tesla.interview.application.cli;
 
+import static com.tesla.interview.application.cli.CommandLineInterviewApplication.executeWrapper;
 import static com.tesla.interview.application.cli.CommandLineInterviewApplication.getOutputFiles;
+import static com.tesla.interview.application.cli.CommandLineInterviewApplication.main;
 import static com.tesla.interview.application.cli.CommandLineInterviewApplication.printTrace;
 import static org.apache.logging.log4j.LogManager.getLogger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -23,6 +26,7 @@ import java.nio.file.Path;
 import java.util.List;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 public class TestCommandLineApplication {
 
@@ -44,11 +48,11 @@ public class TestCommandLineApplication {
 
   @Test
   void testConstructorWorksWithValidRawArgs() throws IOException {
-    String methodName = "testConstructorNullArgsFail";
+    String methodName = "testConstructorWorksWithValidRawArgs";
     String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
 
     Path validDir = Files.createTempDirectory(filePrefix);;
-    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);;
+    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
 
     String[] args =
         new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w", "1"};
@@ -62,7 +66,7 @@ public class TestCommandLineApplication {
 
   @Test
   void testConstructorWorksWithValidCliArgs() throws IOException {
-    String methodName = "testConstructorNullArgsFail";
+    String methodName = "testConstructorWorksWithValidCliArgs";
     String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
 
     Path validDir = Files.createTempDirectory(filePrefix);;
@@ -136,8 +140,81 @@ public class TestCommandLineApplication {
 
     JCommander mockCmder = mock(JCommander.class);
     CommandLineInterviewApplication underTest = new DummyCliApp(mockCmder, args);
-    underTest.toInterviewApplication();
+    underTest.execute();
     verify(mockCmder, never()).usage();
+  }
+
+  @Test
+  void testMainExecutesSuccessfullyWithValidArguments() throws IOException {
+    String methodName = "testMainExecutesSuccessfullyWithValidArguments";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+
+    Path validDir = Files.createTempDirectory(filePrefix);;
+    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
+    String[] args =
+        new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w", "1"};
+
+    try {
+      main(args);
+    } finally {
+      validDir.toFile().delete();
+      validFile.toFile().delete();
+    }
+  }
+
+  @Test
+  void testExecuteWrapperPrintsUsageUponInvalidArgument() throws IOException {
+    String methodName = "testExecuteWrapperPrintsUsageUponInvalidArgument";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+
+    Path validDir = Files.createTempDirectory(filePrefix);;
+    Path invalidFile = Files.createTempFile(filePrefix, null /* suffix */);
+    invalidFile.toFile().delete();
+
+    CommandLineArgs args = new CommandLineArgs();
+    args.inputFile = invalidFile.toString();
+    args.outputDirectory = validDir.toString();
+    args.isHelpCommand = false;
+    args.numPartitions = 1;
+    args.numWriteThreads = 1;
+
+    JCommander mockCommander = mock(JCommander.class, Mockito.RETURNS_DEEP_STUBS);
+    CommandLineInterviewApplication app = new CommandLineInterviewApplication(mockCommander, args);
+    try {
+      executeWrapper(app);
+      verify(mockCommander).usage();
+    } finally {
+      validDir.toFile().delete();
+    }
+  }
+
+  @Test
+  void testExecuteWrapperPrintsUsageUponException() throws IOException {
+    String methodName = "testExecuteWrapperPrintsUsageUponException";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+
+    Path validDir = Files.createTempDirectory(filePrefix);;
+    Path invalidFile = Files.createTempFile(filePrefix, null /* suffix */);
+    invalidFile.toFile().delete();
+
+    CommandLineArgs args = new CommandLineArgs();
+    args.inputFile = invalidFile.toString();
+    args.outputDirectory = validDir.toString();
+    args.isHelpCommand = false;
+    args.numPartitions = 1;
+    args.numWriteThreads = 1;
+
+    JCommander spyCommander = spy(new JCommander());
+    CommandLineInterviewApplication app = new CommandLineInterviewApplication(spyCommander, args);
+    CommandLineInterviewApplication appSpy = spy(app);
+    doThrow(new NullPointerException()).when(appSpy).execute();
+
+    try {
+      executeWrapper(appSpy);
+      verify(spyCommander).usage();
+    } finally {
+      validDir.toFile().delete();
+    }
   }
 
   @Test
@@ -151,8 +228,7 @@ public class TestCommandLineApplication {
     JCommander mockCmder = mock(JCommander.class);
     CommandLineInterviewApplication underTest =
         new CommandLineInterviewApplication(mockCmder, args);
-    InterviewApplication app = underTest.toInterviewApplication();
-    assertNull(app);
+    underTest.execute();
     verify(mockCmder).usage();
   }
 
