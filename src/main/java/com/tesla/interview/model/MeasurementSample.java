@@ -8,9 +8,9 @@ import org.apache.logging.log4j.Logger;
 
 public class MeasurementSample {
 
-  private static final Logger LOG = getLogger(MeasurementSample.class);
-
   private static final String FIELD_SEPARATOR = ",";
+
+  private static final Logger LOG = getLogger(MeasurementSample.class);
 
   /**
    * Serialize a {@link MeasurementSample} from a String.
@@ -50,7 +50,7 @@ public class MeasurementSample {
     if (id.isEmpty()) {
       throw new IllegalArgumentException("Third field (id) cannot be empty");
     }
-    
+
     if (fields.length < 4) {
       throw new IllegalArgumentException("Fourth field (hashtags) cannot be empty");
     }
@@ -69,10 +69,10 @@ public class MeasurementSample {
     return new MeasurementSample(timestamp, partitionNo, id, hashtags);
   }
 
-  private final long timestamp;
-  private final int partitionNo;
-  private final String id;
   private final Set<IntegerHashtag> hashtags;
+  private final String id;
+  private final int partitionNo;
+  private final long timestamp;
 
   /**
    * Constructor.
@@ -82,12 +82,39 @@ public class MeasurementSample {
    * @param id unique identifier
    * @param hashtags tags associated with this sample
    */
-  private MeasurementSample(long timestamp, int partitionNo, String id,
+  public MeasurementSample(long timestamp, int partitionNo, String id,
       Set<IntegerHashtag> hashtags) {
     this.timestamp = timestamp;
     this.partitionNo = partitionNo;
     this.id = id;
     this.hashtags = hashtags;
+  }
+
+  @SuppressWarnings("checkstyle:NeedBraces")
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    MeasurementSample other = (MeasurementSample) obj;
+    if (hashtags == null) {
+      if (other.hashtags != null)
+        return false;
+    } else if (!hashtags.equals(other.hashtags))
+      return false;
+    if (id == null) {
+      if (other.id != null)
+        return false;
+    } else if (!id.equals(other.id))
+      return false;
+    if (partitionNo != other.partitionNo)
+      return false;
+    if (timestamp != other.timestamp)
+      return false;
+    return true;
   }
 
   public Set<IntegerHashtag> getHashtags() {
@@ -104,5 +131,19 @@ public class MeasurementSample {
 
   public long getTimestamp() {
     return timestamp;
+  }
+
+  @Override
+  public String toString() {
+    String prefix =
+        String.join(FIELD_SEPARATOR, String.valueOf(timestamp), String.valueOf(partitionNo), id);
+    StringBuilder suffix = new StringBuilder();
+    for (IntegerHashtag hashtag : hashtags) {
+      if (suffix.length() > 0) {
+        suffix.append(FIELD_SEPARATOR);
+      }
+      suffix.append(hashtag.getTag());
+    }
+    return prefix + FIELD_SEPARATOR + suffix;
   }
 }

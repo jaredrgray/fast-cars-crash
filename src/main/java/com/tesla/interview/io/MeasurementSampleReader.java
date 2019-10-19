@@ -16,10 +16,20 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
 
   private static final Logger LOG = getLogger(AggregateSampleWriter.class);
 
+  /**
+   * Allow unit tests to mock the buffered reader.
+   * 
+   * @param reader mocked reader
+   * @return instance with mocked reader injected
+   */
+  static MeasurementSampleReader withMockedReader(BufferedReader reader) {
+    return new MeasurementSampleReader(1 /* lineNo */, null /* path */, reader);
+  }
+
   private volatile int lineNo;
   private final String path;
   private final BufferedReader reader;
-
+  
   /**
    * Constructor.
    * 
@@ -30,7 +40,7 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
       throw new IllegalArgumentException("sampleFile cannot be null");
     }
     if (!sampleFile.exists() || !sampleFile.isFile() || !sampleFile.canRead()) {
-      throw new IllegalArgumentException("sampleFile must be a readable file");
+      throw new IllegalArgumentException("sampleFile must be an existing readable file");
     }
 
     try {
@@ -41,6 +51,12 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
 
     this.lineNo = 1;
     this.path = sampleFile.getPath();
+  }
+  
+  private MeasurementSampleReader(int lineNo, String path, BufferedReader reader) {
+    this.lineNo = lineNo;
+    this.path = path;
+    this.reader = reader;
   }
 
   @Override
@@ -63,7 +79,7 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
       return hasNext;
     } catch (IOException e) {
       String exceptionMessage = String
-          .format("Unexpected error while closing file -- filePath: %s, lineNo: %d", path, lineNo);
+          .format("Unexpected error while reading file -- filePath: %s, lineNo: %d", path, lineNo);
       throw new IllegalStateException(exceptionMessage, e);
     }
   }
@@ -76,7 +92,7 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
       return MeasurementSample.fromString(nextLine);
     } catch (IOException e) {
       String exceptionMessage = String
-          .format("Unexpected error while closing file -- filePath: %s, lineNo: %d", path, lineNo);
+          .format("Unexpected error while reading file -- filePath: %s, lineNo: %d", path, lineNo);
       throw new IllegalStateException(exceptionMessage, e);
     }
 
