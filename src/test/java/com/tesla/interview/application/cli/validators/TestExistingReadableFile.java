@@ -15,7 +15,7 @@ public class TestExistingReadableFile {
   private static final String PARAM_NAME = "parameterName";
 
   @Test
-  public void testEmptyValueFails() {
+  public void testNullValueFails() {
     ExistingReadableFile underTest = new ExistingReadableFile();
     try {
       underTest.validate(PARAM_NAME, null /* value */);
@@ -26,7 +26,18 @@ public class TestExistingReadableFile {
   }
 
   @Test
-  public void testEmptyPathFails() {
+  public void testEmptyValueFails() {
+    ExistingReadableFile underTest = new ExistingReadableFile();
+    try {
+      underTest.validate(PARAM_NAME, "" /* value */);
+      fail("Expected ParameterException");
+    } catch (ParameterException e) {
+      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
+    }
+  }
+
+  @Test
+  public void testNullPathFails() {
     ExistingReadableFile underTest = new ExistingReadableFile();
     try {
       underTest.validatePath(PARAM_NAME, null /* path */);
@@ -37,7 +48,7 @@ public class TestExistingReadableFile {
   }
 
   @Test
-  public void testNonNullFileFails() {
+  public void testNullFileFails() {
     ExistingReadableFile underTest = new ExistingReadableFile();
     Path path = mock(Path.class);
     when(path.toFile()).thenReturn(null);
@@ -50,7 +61,7 @@ public class TestExistingReadableFile {
   }
 
   @Test
-  public void testNonExistingFileFails() {
+  public void testNotExistingFails() {
     ExistingReadableFile underTest = new ExistingReadableFile();
     Path path = mock(Path.class);
     File file = mock(File.class);
@@ -83,7 +94,7 @@ public class TestExistingReadableFile {
   }
 
   @Test
-  public void testNonReadableFileFails() {
+  public void testNonReadableFails() {
     ExistingReadableFile underTest = new ExistingReadableFile();
     Path path = mock(Path.class);
     File file = mock(File.class);
@@ -101,7 +112,7 @@ public class TestExistingReadableFile {
   }
 
   @Test
-  public void testReadableFileSucceeds() {
+  public void testReadableSucceeds() {
     ExistingReadableFile underTest = new ExistingReadableFile();
     Path path = mock(Path.class);
     File file = mock(File.class);

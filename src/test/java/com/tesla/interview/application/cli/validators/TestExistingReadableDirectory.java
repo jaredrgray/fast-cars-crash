@@ -16,7 +16,7 @@ public class TestExistingReadableDirectory {
   private static final String PARAM_NAME = "parameterName";
 
   @Test
-  public void testEmptyValueFails() {
+  public void testNullValueFails() {
     ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     try {
       underTest.validate(PARAM_NAME, null /* value */);
@@ -27,7 +27,18 @@ public class TestExistingReadableDirectory {
   }
 
   @Test
-  public void testEmptyPathFails() {
+  public void testEmptyValueFails() {
+    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
+    try {
+      underTest.validate(PARAM_NAME, "" /* value */);
+      fail("Expected ParameterException");
+    } catch (ParameterException e) {
+      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
+    }
+  }
+
+  @Test
+  public void testNullPathFails() {
     ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     try {
       underTest.validatePath(PARAM_NAME, null /* path */);
@@ -38,7 +49,7 @@ public class TestExistingReadableDirectory {
   }
 
   @Test
-  public void testNonNullFileFails() {
+  public void testNullFileFails() {
     ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     Path path = mock(Path.class);
     when(path.toFile()).thenReturn(null);
@@ -51,7 +62,7 @@ public class TestExistingReadableDirectory {
   }
 
   @Test
-  public void testNonExistingFileFails() {
+  public void testNoExistingFileFails() {
     ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     Path path = mock(Path.class);
     File file = mock(File.class);
@@ -67,7 +78,7 @@ public class TestExistingReadableDirectory {
   }
 
   @Test
-  public void testNonDirectoryFileFails() {
+  public void testNotDirectoryFails() {
     ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     Path path = mock(Path.class);
     File file = mock(File.class);
@@ -84,7 +95,7 @@ public class TestExistingReadableDirectory {
   }
 
   @Test
-  public void testNonReadableFileFails() {
+  public void testNotReadableFails() {
     ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     Path path = mock(Path.class);
     File file = mock(File.class);
