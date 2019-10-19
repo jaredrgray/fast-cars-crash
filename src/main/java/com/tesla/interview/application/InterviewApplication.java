@@ -99,6 +99,7 @@ public class InterviewApplication implements Callable<Void> {
 
   @Override
   public Void call() {
+    
     // spawn all writes
     LOG.info("starting application");
     Queue<Future<Void>> q = new ArrayDeque<>();
@@ -117,11 +118,11 @@ public class InterviewApplication implements Callable<Void> {
       }
     }
 
-    // wait for all writes
+    // wait for all writes to finish
     while (!q.isEmpty()) {
       Future<Void> next = q.remove();
       try {
-        next.get(10, TimeUnit.SECONDS); // TODO make configurable
+        next.get(10, TimeUnit.SECONDS); // TODO make timeout configurable
       } catch (InterruptedException e) {
         // no problem!
         Thread.currentThread().interrupt();
@@ -135,7 +136,7 @@ public class InterviewApplication implements Callable<Void> {
       }
     }
 
-    // close down all readers and writers
+    // tidy the room
     reader.close();
     for (AsynchronousWriter writer : threadNoToWriter.values()) {
       writer.close();

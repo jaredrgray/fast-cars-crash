@@ -22,7 +22,7 @@ public class AggregateSampleWriter implements Closeable {
   /**
    * Constructor.
    * 
-   * @param fileToWrite the file to which we will write new samples
+   * @param fileToWrite file to which we will write new samples
    */
   public AggregateSampleWriter(File fileToWrite) {
     if (fileToWrite == null) {

@@ -8,8 +8,9 @@ public class RequiredPositiveInteger implements IValueValidator<Integer> {
   @Override
   public void validate(String name, Integer value) throws ParameterException {
     if (value == null) {
-      throw new ParameterException(String.format("%s is required", name));
+      throw new ParameterException(String.format("%s cannot be null", name));
     }
+    
     if (value.intValue() <= 0) {
       throw new ParameterException(
           String.format("%s must be a positive integer (was %d)", name, value.intValue()));

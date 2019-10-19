@@ -15,7 +15,7 @@ public enum IntegerHashtag {
   SEVEN("#seven", 7), //
   EIGHT("#eight", 8), //
   NINE("#nine", 9), //
-  TEN("#ten", 10) //
+  TEN("#ten", 10), //
   ;
   
   private static final Map<String, IntegerHashtag> tagToEnum;
@@ -34,10 +34,7 @@ public enum IntegerHashtag {
     }
   }
   
-  /** String representation of the hashtag. */
   private final String tag;
-
-  /** Integer representation of the hashtag's value. */
   private final int value;
 
   private IntegerHashtag(String tag, int value) {

@@ -1,4 +1,4 @@
-package org.tesla.interview.model;
+package com.tesla.interview.model;
 
 import static java.util.Map.Entry;
 import static org.junit.jupiter.api.Assertions.assertEquals;

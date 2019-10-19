@@ -1,4 +1,4 @@
-package org.tesla.interview.model;
+package com.tesla.interview.model;
 
 import static com.tesla.interview.model.IntegerHashtag.EIGHT;
 import static com.tesla.interview.model.IntegerHashtag.FIVE;

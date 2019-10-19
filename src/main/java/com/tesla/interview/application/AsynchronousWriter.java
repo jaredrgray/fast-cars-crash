@@ -71,7 +71,7 @@ public class AsynchronousWriter implements Closeable {
    * @return a progress indicator for the write
    */
   public Future<Void> writeSample(AggregateSample sample) {
-    Callable<Void> r = new Callable<Void>() {
+    return executor.submit(new Callable<Void>() {
       @Override
       public Void call() {
         String path =
@@ -84,7 +84,6 @@ public class AsynchronousWriter implements Closeable {
           throw new IllegalArgumentException("Invalid path: " + path); // null-safe
         }
       }
-    };
-    return executor.submit(r);
+    });
   }
 }
