@@ -1,5 +1,7 @@
 package com.tesla.interview.application;
 
+import static org.apache.logging.log4j.LogManager.getLogger;
+
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.tesla.interview.io.AggregateSampleWriter;
@@ -7,19 +9,25 @@ import com.tesla.interview.model.AggregateSample;
 import java.io.Closeable;
 import java.io.File;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import org.apache.logging.log4j.Logger;
 
 public class AsynchronousWriter implements Closeable {
 
-  private final ExecutorService executor;
-  private final Map<Integer, String> partitionNoToPath;
-  private final Map<String, AggregateSampleWriter> pathToWriter;
-  private final List<AggregateSampleWriter> writers;
+  private static final Logger LOG = getLogger(AsynchronousWriter.class);
+
+  final ExecutorService executor;
+  final Map<Integer, String> partitionNoToPath;
+  final Map<String, AggregateSampleWriter> pathToWriter;
+  final List<AggregateSampleWriter> writers;
 
   /**
    * Constructor.
@@ -43,10 +51,15 @@ public class AsynchronousWriter implements Closeable {
     for (String path : partitionNoToPath.values()) {
       File file = Paths.get(path).toFile();
       if (file != null) {
-        AggregateSampleWriter writer = AggregateSampleWriter.fromFile(file);
-        writers.add(writer);
-        AggregateSampleWriter existing = pathToWriter.put(path, writer);
-        if (existing != null) {
+        if (!pathToWriter.containsKey(path)) {
+          AggregateSampleWriter writer = AggregateSampleWriter.fromFile(file);
+          if (writer != null) {
+            writers.add(writer);
+            pathToWriter.put(path, writer);
+          } else {
+            throw new IllegalStateException("Unable to open file -- path: " + path);
+          }
+        } else {
           throw new IllegalArgumentException(
               "Cannot specify identical path more than once -- path: " + path);
         }
@@ -57,10 +70,50 @@ public class AsynchronousWriter implements Closeable {
     }
   }
 
+  /**
+   * Injection constructor for unit tests.
+   * 
+   * @param executor executor to inject
+   * @param partitionNoToPath maps partition numbers to paths of files
+   * @param pathToWriter maps paths of files to writers
+   * @param writers writers to inject
+   */
+  // @formatter:off
+  AsynchronousWriter(
+      ExecutorService executor,
+      Map<Integer, String> partitionNoToPath,
+      Map<String, AggregateSampleWriter> pathToWriter,
+      List<AggregateSampleWriter> writers) {
+    
+    this.executor = executor;
+    this.partitionNoToPath = partitionNoToPath;
+    this.pathToWriter = pathToWriter;
+    this.writers = writers;
+  }
+  // @formatter:on
+
   @Override
   public void close() {
     for (AggregateSampleWriter asw : pathToWriter.values()) {
       asw.close();
+    }
+
+    executor.shutdown();
+    Duration waitDuration = Duration.ofSeconds(10); // TODO configurable timeout
+    Instant endWaitTime = Instant.now().plusSeconds(waitDuration.getSeconds());
+
+    while (Instant.now().isBefore(endWaitTime) && !executor.isTerminated()) {
+      try {
+        long waitTimeInMillis = Duration.between(Instant.now(), endWaitTime).toMillis() / 2;
+        executor.awaitTermination(waitTimeInMillis, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+
+    if (!executor.isTerminated()) {
+      LOG.warn(String.format("Could not shut down executor service within %d %s",
+          waitDuration.getSeconds(), TimeUnit.SECONDS.name()));
     }
   }
 

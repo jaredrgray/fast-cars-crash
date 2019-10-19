@@ -33,10 +33,12 @@ public class AggregateSampleWriter implements Closeable {
       BufferedWriter writer = Files.newWriter(fileToWrite, StandardCharsets.UTF_8);
       return new AggregateSampleWriter(writer, 0 /* lineNo */, fileToWrite.getPath());
     } catch (FileNotFoundException e) {
-      throw new IllegalStateException("Unexpected error while opening file", e);
+      LOG.info(String.format("unable to open output file -- reason: %s, path: %s", "no such file",
+          fileToWrite.getPath()));
+      return null;
     }
   }
-  
+
   /**
    * Create a custom writer for unit testing.
    * 
@@ -46,7 +48,7 @@ public class AggregateSampleWriter implements Closeable {
   static AggregateSampleWriter withWriterMock(BufferedWriter mock) {
     return new AggregateSampleWriter(mock, -1 /* lineno */, null /* path */);
   }
-  
+
   private int lineNo;
   private String path;
   private BufferedWriter writer;
