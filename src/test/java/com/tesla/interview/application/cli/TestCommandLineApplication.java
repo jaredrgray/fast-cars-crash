@@ -34,15 +34,32 @@ public class TestCommandLineApplication {
 
   private static final String CSV_EXTENSION = ".csv";
 
-  class DummyCliApp extends CommandLineInterviewApplication {
-    public DummyCliApp(JCommander commander, CommandLineArgs args) {
+  /**
+   * This is a normal {@link CommandLineInterviewApplication} except that
+   * {@link CommandLineInterviewApplication#appFactory} returns a mock.
+   * <p/>
+   * The idea is to prevent this test suite from calling {@link InterviewApplication}'s code, which
+   * is outside the scope of a unit test.
+   */
+  private class MockedCliApp extends CommandLineInterviewApplication {
+
+    private MockedCliApp(JCommander commander, CommandLineArgs args) {
       super(commander, args);
+      
       appFactory = new AppFactory() {
         @Override
         public InterviewApplication get() {
-          return null;
+          return mock(InterviewApplication.class);
         }
       };
+    }
+
+    private MockedCliApp(String[] args) {
+      super(args);
+    }
+
+    private MockedCliApp(CommandLineArgs args) {
+      super(args);
     }
   }
 
@@ -57,7 +74,7 @@ public class TestCommandLineApplication {
     String[] args =
         new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w", "1"};
     try {
-      new CommandLineInterviewApplication(args);
+      new MockedCliApp(args);
     } finally {
       validDir.toFile().delete();
       validFile.toFile().delete();
@@ -76,7 +93,7 @@ public class TestCommandLineApplication {
     args.inputFile = validFile.toString();
     args.outputDirectory = validDir.toString();
     try {
-      new CommandLineInterviewApplication(args);
+      new MockedCliApp(args);
     } finally {
       validDir.toFile().delete();
       validFile.toFile().delete();
@@ -87,7 +104,7 @@ public class TestCommandLineApplication {
   void testConstructorEmptyArgsFail() {
     String[] args = new String[] {};
     try {
-      new CommandLineInterviewApplication(args);
+      new MockedCliApp(args);
       fail("Expected ParameterException");
     } catch (ParameterException e) {
       assertTrue(e.getMessage().contains("cannot be null"));
@@ -115,7 +132,7 @@ public class TestCommandLineApplication {
         LOG.info(String.format("%s: %02d -- inputFileNull: %s, outputDirectoryNull: %s%n",
             methodName, i, args.inputFile == null, args.outputDirectory == null));
 
-        new CommandLineInterviewApplication(args);
+        new MockedCliApp(args);
         fail("Expected ParameterException");
       } catch (ParameterException e) {
         assertTrue(e.getMessage().contains("cannot be null"));
@@ -139,7 +156,7 @@ public class TestCommandLineApplication {
     args.outputDirectory = "outdir";
 
     JCommander mockCmder = mock(JCommander.class);
-    CommandLineInterviewApplication underTest = new DummyCliApp(mockCmder, args);
+    MockedCliApp underTest = new MockedCliApp(mockCmder, args);
     underTest.execute();
     verify(mockCmder, never()).usage();
   }
@@ -179,9 +196,11 @@ public class TestCommandLineApplication {
     args.numWriteThreads = 1;
 
     JCommander mockCommander = mock(JCommander.class, Mockito.RETURNS_DEEP_STUBS);
-    CommandLineInterviewApplication app = new CommandLineInterviewApplication(mockCommander, args);
+    MockedCliApp appSpy = spy(new MockedCliApp(mockCommander, args));
+    doThrow(new ParameterException("POOP")).when(appSpy).execute();
+    
     try {
-      executeWrapper(app);
+      executeWrapper(appSpy);
       verify(mockCommander).usage();
     } finally {
       validDir.toFile().delete();
@@ -189,8 +208,8 @@ public class TestCommandLineApplication {
   }
 
   @Test
-  void testExecuteWrapperPrintsUsageUponException() throws IOException {
-    String methodName = "testExecuteWrapperPrintsUsageUponException";
+  void testExecuteWrapperDoesNotPrintUsageUponException() throws IOException {
+    String methodName = "testExecuteWrapperDoesNotPrintUsageUponException";
     String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
 
     Path validDir = Files.createTempDirectory(filePrefix);;
@@ -205,13 +224,13 @@ public class TestCommandLineApplication {
     args.numWriteThreads = 1;
 
     JCommander spyCommander = spy(new JCommander());
-    CommandLineInterviewApplication app = new CommandLineInterviewApplication(spyCommander, args);
-    CommandLineInterviewApplication appSpy = spy(app);
+    MockedCliApp app = new MockedCliApp(spyCommander, args);
+    MockedCliApp appSpy = spy(app);
     doThrow(new NullPointerException()).when(appSpy).execute();
 
     try {
       executeWrapper(appSpy);
-      verify(spyCommander).usage();
+      verify(spyCommander, never()).usage();
     } finally {
       validDir.toFile().delete();
     }
@@ -226,8 +245,7 @@ public class TestCommandLineApplication {
     args.outputDirectory = "outdir";
 
     JCommander mockCmder = mock(JCommander.class);
-    CommandLineInterviewApplication underTest =
-        new CommandLineInterviewApplication(mockCmder, args);
+    MockedCliApp underTest = new MockedCliApp(mockCmder, args);
     underTest.execute();
     verify(mockCmder).usage();
   }

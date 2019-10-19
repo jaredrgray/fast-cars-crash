@@ -28,7 +28,9 @@ public class CommandLineInterviewApplication {
     try {
       cliApp.execute();
     } catch (RuntimeException e) {
-      cliApp.commander.usage();
+      if (e instanceof ParameterException) {
+        cliApp.commander.usage();
+      }
       cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
       printTrace(cliApp.commander.getConsole(), e);
     }
