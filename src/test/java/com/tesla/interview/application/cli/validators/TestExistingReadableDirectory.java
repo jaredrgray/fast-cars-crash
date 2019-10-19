@@ -50,9 +50,9 @@ public class TestExistingReadableDirectory {
 
   @Test
   public void testNullFileFails() {
-    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     Path path = mock(Path.class);
     when(path.toFile()).thenReturn(null);
+    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     try {
       underTest.validatePath(PARAM_NAME, path);
       fail("Expected ParameterException");
@@ -79,13 +79,13 @@ public class TestExistingReadableDirectory {
 
   @Test
   public void testNotDirectoryFails() {
-    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     Path path = mock(Path.class);
     File file = mock(File.class);
     when(path.toFile()).thenReturn(file);
     when(file.exists()).thenReturn(true);
     when(file.isDirectory()).thenReturn(false);
 
+    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     try {
       underTest.validatePath(PARAM_NAME, path);
       fail("Expected ParameterException");
@@ -114,13 +114,14 @@ public class TestExistingReadableDirectory {
 
   @Test
   public void testReadableDirectorySucceeds() {
-    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     Path path = mock(Path.class);
     File file = mock(File.class);
     when(path.toFile()).thenReturn(file);
     when(file.exists()).thenReturn(true);
     when(file.isDirectory()).thenReturn(true);
     when(file.canRead()).thenReturn(true);
+    
+    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     underTest.validatePath(PARAM_NAME, path);
   }
 

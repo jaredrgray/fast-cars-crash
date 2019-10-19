@@ -12,6 +12,16 @@ import java.util.List;
 
 public class CommandLineInterviewApplication {
 
+  protected class AppFactory implements Supplier<InterviewApplication> {
+    @Override
+    public InterviewApplication get() {
+      Path outputDirectory = Paths.get(parsedArguments.outputDirectory);
+      List<String> outputFilePaths = getOutputFiles(parsedArguments.numPartitions, outputDirectory);
+      return new InterviewApplication(parsedArguments.numWriteThreads,
+          Integer.MAX_VALUE /* TODO: maxFileHandles */, outputFilePaths, parsedArguments.inputFile);
+    }
+  }
+
   private static final String OUTPUT_FILE_FORMAT = "output-file-%d.csv";
 
   /**
@@ -71,9 +81,22 @@ public class CommandLineInterviewApplication {
     }
   }
 
+  protected AppFactory appFactory = new AppFactory();
+
   private final JCommander commander;
 
   private CommandLineArgs parsedArguments;
+
+  CommandLineInterviewApplication(CommandLineArgs args) {
+    this(new JCommander(args), args);
+  }
+
+  CommandLineInterviewApplication(JCommander commander, CommandLineArgs args) {
+    this.commander = commander;
+    validateArgs(args);
+    this.parsedArguments = args;
+
+  }
 
   /**
    * Constructor.
@@ -91,31 +114,14 @@ public class CommandLineInterviewApplication {
     this.parsedArguments = parsedArguments;
   }
 
-  CommandLineInterviewApplication(CommandLineArgs args) {
-    this(new JCommander(args), args);
-  }
-
-  CommandLineInterviewApplication(JCommander commander, CommandLineArgs args) {
-    this.commander = commander;
-    validateArgs(args);
-    this.parsedArguments = args;
-
-  }
-
-  protected class AppFactory implements Supplier<InterviewApplication> {
-
-    @Override
-    public InterviewApplication get() {
-      Path outputDirectory = Paths.get(parsedArguments.outputDirectory);
-      List<String> outputFilePaths = getOutputFiles(parsedArguments.numPartitions, outputDirectory);
-      return new InterviewApplication(parsedArguments.numWriteThreads,
-          Integer.MAX_VALUE /* TODO: maxFileHandles */, outputFilePaths, parsedArguments.inputFile);
-    }
-
-  };
-  
-  protected AppFactory appFactory = new AppFactory();
-
+  /**
+   * Convert our parsed commands to an application.
+   * <p>
+   * Package-visible for unit tests.
+   * </p>
+   * 
+   * @return the application
+   */
   InterviewApplication toInterviewApplication() {
     if (!parsedArguments.isHelpCommand) {
       return appFactory.get();
@@ -126,7 +132,13 @@ public class CommandLineInterviewApplication {
     }
   }
 
-  public void validateArgs(CommandLineArgs parsedArguments) {
+  /**
+   * Validate the arguments.
+   * 
+   * @param parsedArguments arguments to validate
+   * @throws ParameterException if arguments are invalid
+   */
+  private void validateArgs(CommandLineArgs parsedArguments) {
     if (parsedArguments.outputDirectory == null) {
       throw new ParameterException("outputDirectory cannot be null");
     }

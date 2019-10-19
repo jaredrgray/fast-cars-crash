@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
 import com.beust.jcommander.ParameterException;
 import java.io.File;
 import java.nio.file.Path;
@@ -95,7 +96,6 @@ public class TestExistingReadableFile {
 
   @Test
   public void testNonReadableFails() {
-    ExistingReadableFile underTest = new ExistingReadableFile();
     Path path = mock(Path.class);
     File file = mock(File.class);
     when(path.toFile()).thenReturn(file);
@@ -103,6 +103,7 @@ public class TestExistingReadableFile {
     when(file.isFile()).thenReturn(true);
     when(file.canRead()).thenReturn(false);
 
+    ExistingReadableFile underTest = new ExistingReadableFile();
     try {
       underTest.validatePath(PARAM_NAME, path);
       fail("Expected ParameterException");
@@ -113,13 +114,14 @@ public class TestExistingReadableFile {
 
   @Test
   public void testReadableSucceeds() {
-    ExistingReadableFile underTest = new ExistingReadableFile();
     Path path = mock(Path.class);
     File file = mock(File.class);
     when(path.toFile()).thenReturn(file);
     when(file.exists()).thenReturn(true);
     when(file.isFile()).thenReturn(true);
     when(file.canRead()).thenReturn(true);
+
+    ExistingReadableFile underTest = new ExistingReadableFile();
     underTest.validatePath(PARAM_NAME, path);
   }
 

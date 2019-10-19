@@ -7,6 +7,7 @@ import com.tesla.interview.model.AggregateSample;
 import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import org.apache.logging.log4j.Logger;
@@ -15,16 +16,12 @@ public class AggregateSampleWriter implements Closeable {
 
   private static final Logger LOG = getLogger(AggregateSampleWriter.class);
 
-  private volatile int lineNo;
-  private final String path;
-  private final BufferedWriter writer;
-
   /**
-   * Constructor.
+   * Create an aggregate writer from a file.
    * 
    * @param fileToWrite file to which we will write new samples
    */
-  public AggregateSampleWriter(File fileToWrite) {
+  public static AggregateSampleWriter fromFile(File fileToWrite) {
     if (fileToWrite == null) {
       throw new IllegalArgumentException("fileToWrite cannot be null");
     }
@@ -33,13 +30,31 @@ public class AggregateSampleWriter implements Closeable {
     }
 
     try {
-      writer = Files.newWriter(fileToWrite, StandardCharsets.UTF_8);
-    } catch (IOException e) {
+      BufferedWriter writer = Files.newWriter(fileToWrite, StandardCharsets.UTF_8);
+      return new AggregateSampleWriter(writer, 0 /* lineNo */, fileToWrite.getPath());
+    } catch (FileNotFoundException e) {
       throw new IllegalStateException("Unexpected error while opening file", e);
     }
+  }
+  
+  /**
+   * Create a custom writer for unit testing.
+   * 
+   * @param mock mock or stub of writer
+   * @return custom instance with mock and/or stub injected
+   */
+  public static AggregateSampleWriter withWriterMock(BufferedWriter mock) {
+    return new AggregateSampleWriter(mock, -1 /* lineno */, null /* path */);
+  }
+  
+  private int lineNo;
+  private String path;
+  private BufferedWriter writer;
 
-    this.lineNo = 0;
-    this.path = fileToWrite.getPath();
+  private AggregateSampleWriter(BufferedWriter writer, int lineNo, String path) {
+    this.writer = writer;
+    this.lineNo = lineNo;
+    this.path = path;
   }
 
   @Override

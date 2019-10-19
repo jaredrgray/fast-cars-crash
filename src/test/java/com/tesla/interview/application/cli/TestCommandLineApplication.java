@@ -24,7 +24,7 @@ public class TestCommandLineApplication {
         }
       };
     }
-  };
+  }
 
   @Test
   void testConstructEmptyArgsFail() {
@@ -60,7 +60,8 @@ public class TestCommandLineApplication {
     args.outputDirectory = "outdir";
 
     JCommander mockCmder = mock(JCommander.class);
-    CommandLineInterviewApplication underTest = new CommandLineInterviewApplication(mockCmder, args);
+    CommandLineInterviewApplication underTest =
+        new CommandLineInterviewApplication(mockCmder, args);
     InterviewApplication app = underTest.toInterviewApplication();
     assertNull(app);
     verify(mockCmder).usage();

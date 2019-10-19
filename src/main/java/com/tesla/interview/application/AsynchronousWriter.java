@@ -43,7 +43,7 @@ public class AsynchronousWriter implements Closeable {
     for (String path : partitionNoToPath.values()) {
       File file = Paths.get(path).toFile();
       if (file != null) {
-        AggregateSampleWriter writer = new AggregateSampleWriter(file);
+        AggregateSampleWriter writer = AggregateSampleWriter.fromFile(file);
         writers.add(writer);
         AggregateSampleWriter existing = pathToWriter.put(path, writer);
         if (existing != null) {

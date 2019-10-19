@@ -4,7 +4,7 @@ import com.google.common.collect.Maps;
 import java.util.Map;
 
 public enum IntegerHashtag {
-  
+
   /* empty comments present below to please the code formatter */
   ONE("#one", 1), //
   TWO("#two", 2), //
@@ -17,7 +17,7 @@ public enum IntegerHashtag {
   NINE("#nine", 9), //
   TEN("#ten", 10), //
   ;
-  
+
   private static final Map<String, IntegerHashtag> tagToEnum;
   static {
     tagToEnum = Maps.newHashMap();
@@ -25,7 +25,13 @@ public enum IntegerHashtag {
       tagToEnum.put(e.getTag(), e);
     }
   }
-  
+
+  /**
+   * Grant an enum from a tag.
+   * 
+   * @param tag tag whose associated enum to return
+   * @return the associated enum
+   */
   public static IntegerHashtag fromTag(String tag) {
     if (tagToEnum.containsKey(tag)) {
       return tagToEnum.get(tag);
@@ -33,7 +39,7 @@ public enum IntegerHashtag {
       throw new IllegalArgumentException("No such tag: " + tag);
     }
   }
-  
+
   private final String tag;
   private final int value;
 
