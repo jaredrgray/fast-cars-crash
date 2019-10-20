@@ -50,22 +50,17 @@ public class AsynchronousWriter implements Closeable {
 
     for (String path : partitionNoToPath.values()) {
       File file = Paths.get(path).toFile();
-      if (file != null) {
-        if (!pathToWriter.containsKey(path)) {
-          AggregateSampleWriter writer = AggregateSampleWriter.fromFile(file);
-          if (writer != null) {
-            writers.add(writer);
-            pathToWriter.put(path, writer);
-          } else {
-            throw new IllegalStateException("Unable to open file -- path: " + path);
-          }
+      if (!pathToWriter.containsKey(path)) {
+        AggregateSampleWriter writer = AggregateSampleWriter.fromFile(file);
+        if (writer != null) {
+          writers.add(writer);
+          pathToWriter.put(path, writer);
         } else {
-          throw new IllegalArgumentException(
-              "Cannot specify identical path more than once -- path: " + path);
+          throw new IllegalStateException("Unable to open file -- path: " + path);
         }
       } else {
         throw new IllegalArgumentException(
-            "Unable to resolve file path for writing -- path: " + path);
+            "Cannot specify identical path more than once -- path: " + path);
       }
     }
   }
@@ -99,8 +94,8 @@ public class AsynchronousWriter implements Closeable {
     }
 
     executor.shutdown();
-    Duration waitDuration = Duration.ofSeconds(10); // TODO configurable timeout
-    Instant endWaitTime = Instant.now().plusSeconds(waitDuration.getSeconds());
+    Duration waitDuration = Duration.ofSeconds(3); // TODO configurable timeout
+    Instant endWaitTime = Instant.now().plus(waitDuration);
 
     while (Instant.now().isBefore(endWaitTime) && !executor.isTerminated()) {
       try {
@@ -113,7 +108,7 @@ public class AsynchronousWriter implements Closeable {
 
     if (!executor.isTerminated()) {
       LOG.warn(String.format("Could not shut down executor service within %d %s",
-          waitDuration.getSeconds(), TimeUnit.SECONDS.name()));
+          waitDuration.getSeconds(), TimeUnit.SECONDS.name().toLowerCase()));
     }
   }
 
