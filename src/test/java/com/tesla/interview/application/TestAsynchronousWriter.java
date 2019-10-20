@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.Lists;
@@ -42,17 +42,23 @@ public class TestAsynchronousWriter {
   private List<Path> filesToWrite;
   private Map<Integer, String> partitionToPath;
   private AsynchronousWriter underTest;
-  private Map<String, AggregateSampleWriter> pathToWriterSpies;
-  private List<AggregateSampleWriter> allWriterSpies;
+  private Map<String, AggregateSampleWriter> pathToWriter;
+  private List<AggregateSampleWriter> allWriters;
   private Queue<WriteTask> bufferQueue;
+  private Duration maxWaitDuration;
+  private Duration pollDelay;
   private int bufferSize;
 
-  private void createWriterSpies() {
-    allWriterSpies = Lists.newArrayList();
+  private void createWriters() {
+    allWriters = Lists.newArrayList();
     for (Path p : filesToWrite) {
-      AggregateSampleWriter writerSpy = spy(AggregateSampleWriter.fromFile(p.toFile()));
-      allWriterSpies.add(writerSpy);
-      pathToWriterSpies.put(p.toString(), writerSpy);
+      Instant s = Instant.now();
+      
+      /* performance note: creating the first mock takes about one full second */
+      AggregateSampleWriter writerMock = mock(AggregateSampleWriter.class);
+      System.out.println(Duration.between(s, Instant.now()).toString());
+      allWriters.add(writerMock);
+      pathToWriter.put(p.toString(), writerMock);
     }
   }
 
@@ -88,17 +94,24 @@ public class TestAsynchronousWriter {
     }
 
     bufferQueue = Queues.newArrayDeque();
-    pathToWriterSpies = Maps.newHashMap();
+    pathToWriter = Maps.newHashMap();
+    maxWaitDuration = Duration.ofMillis(10);
     bufferSize = 10;
+    pollDelay = Duration.ofMillis(1);
   }
 
   @Test
   void testCloseFailPath() {
+
     ExecutorService executorService = Executors.newSingleThreadExecutor();
+    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriter,
+        allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
+
+    // submit a task that will not complete before close timeout
     executorService.submit(new Runnable() {
       @Override
       public void run() {
-        Duration spinDuration = Duration.ofSeconds(5);
+        Duration spinDuration = maxWaitDuration.plus(Duration.ofMillis(10));
         Instant end = Instant.now().plus(spinDuration);
         try {
           while (Instant.now().isBefore(end)) {
@@ -109,9 +122,6 @@ public class TestAsynchronousWriter {
         }
       }
     });
-
-    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies,
-        allWriterSpies, bufferQueue, bufferSize);
     underTest.close();
     assertTrue(executorService.isShutdown());
     assertFalse(executorService.isTerminated());
@@ -137,8 +147,8 @@ public class TestAsynchronousWriter {
       }
     });
 
-    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies,
-        allWriterSpies, bufferQueue, bufferSize);
+    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriter,
+        allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
     underTest.close();
   }
 
@@ -223,10 +233,10 @@ public class TestAsynchronousWriter {
 
   @Test
   void testWriteSamplePositiveOnePartition() throws InterruptedException, ExecutionException {
-    createWriterSpies();
+    createWriters();
     ExecutorService executorService = Executors.newSingleThreadExecutor();
-    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies,
-        allWriterSpies, bufferQueue, bufferSize);
+    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriter,
+        allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
 
     int partitionNo = 2;
     AggregateSample sample = new AggregateSample(0 /* aggregateValue */, "1" /* id */,
@@ -235,8 +245,8 @@ public class TestAsynchronousWriter {
     f.get();
 
     String writtenPath = partitionToPath.get(partitionNo);
-    AggregateSampleWriter spyWriter = pathToWriterSpies.get(writtenPath);
-    for (AggregateSampleWriter spy : allWriterSpies) {
+    AggregateSampleWriter spyWriter = pathToWriter.get(writtenPath);
+    for (AggregateSampleWriter spy : allWriters) {
       if (spy.equals(spyWriter)) {
         verify(spyWriter).writeSample(eq(sample));
       } else {
@@ -247,10 +257,10 @@ public class TestAsynchronousWriter {
 
   @Test
   void testWriteSamplePositiveThreePartitions() throws InterruptedException, ExecutionException {
-    createWriterSpies();
+    createWriters();
     ExecutorService executorService = Executors.newSingleThreadExecutor();
-    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies,
-        allWriterSpies, bufferQueue, bufferSize);
+    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriter,
+        allWriters, bufferQueue, maxWaitDuration, maxWaitDuration, bufferSize);
 
     int numPartitions = 3;
     List<Future<WriteTask>> futures = Lists.newArrayList();
@@ -268,13 +278,13 @@ public class TestAsynchronousWriter {
 
     for (int partitionNo = 0; partitionNo < numPartitions; partitionNo++) {
       String writtenPath = partitionToPath.get(partitionNo);
-      AggregateSampleWriter spyWriter = pathToWriterSpies.get(writtenPath);
-      for (AggregateSampleWriter spy : allWriterSpies) {
+      AggregateSampleWriter expectedWriter = pathToWriter.get(writtenPath);
+      for (AggregateSampleWriter writer : allWriters) {
         AggregateSample s = samples.get(partitionNo);
-        if (spy == spyWriter) {
-          verify(spyWriter).writeSample(eq(s));
+        if (writer == expectedWriter) {
+          verify(expectedWriter).writeSample(eq(s));
         } else {
-          verify(spy, never()).writeSample(eq(s));
+          verify(writer, never()).writeSample(eq(s));
         }
       }
     }

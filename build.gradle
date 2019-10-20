@@ -1,4 +1,5 @@
 plugins {
+	id 'application' // run task
     id 'checkstyle' // code formatting
     id 'jacoco' // coverage
     id 'java'
@@ -56,6 +57,14 @@ task unitTest(type: Test) {
 	group 'Verification'
 	description 'Runs all unit tests'
 	include '**/UnitTestSuite.class'  
+}
+
+ext {
+   javaMainClass = "com.tesla.interview.application.cli.CommandLineInterviewApplication"
+}
+
+application {
+    mainClassName = javaMainClass
 }
 
 version = 0.1

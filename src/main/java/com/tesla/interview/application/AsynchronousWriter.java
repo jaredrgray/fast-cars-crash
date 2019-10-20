@@ -31,6 +31,7 @@ import org.apache.logging.log4j.Logger;
 
 public class AsynchronousWriter implements Closeable {
 
+
   class WriteScheduler extends Thread {
 
     @Override
@@ -77,7 +78,7 @@ public class AsynchronousWriter implements Closeable {
       try {
         while (!isClosed.get() && bufferedWrites.isEmpty()) {
           try {
-            bufferHasTask.await(POLL_DELAY.toMillis(), TimeUnit.MILLISECONDS);
+            bufferHasTask.await(pollDelay.toMillis(), TimeUnit.MILLISECONDS);
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
           }
@@ -122,7 +123,7 @@ public class AsynchronousWriter implements Closeable {
     Future<WriteTask> awaitScheduling() {
       while (scheduled.get() == null) {
         try {
-          Thread.sleep(POLL_DELAY.toMillis());
+          Thread.sleep(pollDelay.toMillis());
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
         }
@@ -139,15 +140,18 @@ public class AsynchronousWriter implements Closeable {
     }
   }
 
+  private static final Duration DEFAULT_MAX_WAIT = Duration.ofSeconds(3);
   private static final Logger LOG = getLogger(AsynchronousWriter.class);
-  private static final Duration POLL_DELAY = Duration.ofMillis(100);
   private static final Duration PRINT_INTERVAL = Duration.ofSeconds(15);
+  private static final Duration DEFAULT_POLL_DELAY = Duration.ofMillis(50);
 
   final Queue<WriteTask> bufferedWrites;
   final int bufferSize;
   final ExecutorService executor;
+  final Duration maxWaitDuration;
   final Map<Integer, String> partitionNumToPath;
   final Map<String, AggregateSampleWriter> pathToWriter;
+  final Duration pollDelay;
   final WriteScheduler scheduler = new WriteScheduler();
   final List<AggregateSampleWriter> writers;
 
@@ -181,6 +185,8 @@ public class AsynchronousWriter implements Closeable {
     this.pathToWriter = Maps.newHashMap();
     this.bufferedWrites = new ArrayDeque<>();
     this.bufferSize = threadPoolSize;
+    this.maxWaitDuration = DEFAULT_MAX_WAIT;
+    this.pollDelay = DEFAULT_POLL_DELAY;
 
     for (String path : partitionNoToPath.values()) {
       File file = Paths.get(path).toFile();
@@ -216,6 +222,8 @@ public class AsynchronousWriter implements Closeable {
       Map<String, AggregateSampleWriter> pathToWriter,
       List<AggregateSampleWriter> writers,
       Queue<WriteTask> bufferedWrites,
+      Duration maxWaitDuration,
+      Duration pollDelay,
       int bufferSize) {
     
     this.executor = executor;
@@ -223,6 +231,8 @@ public class AsynchronousWriter implements Closeable {
     this.pathToWriter = pathToWriter;
     this.writers = writers;
     this.bufferedWrites = bufferedWrites;
+    this.maxWaitDuration = maxWaitDuration;
+    this.pollDelay = pollDelay;
     this.bufferSize = bufferSize;
     
     scheduler.start();
@@ -235,8 +245,6 @@ public class AsynchronousWriter implements Closeable {
       for (AggregateSampleWriter asw : pathToWriter.values()) {
         asw.close();
       }
-
-      Duration maxWaitDuration = Duration.ofSeconds(3); // TODO configurable timeout
 
       executor.shutdown();
       Supplier<Boolean> notTerminated = () -> !executor.isTerminated();

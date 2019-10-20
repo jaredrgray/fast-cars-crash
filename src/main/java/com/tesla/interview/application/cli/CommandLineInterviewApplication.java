@@ -36,14 +36,21 @@ public class CommandLineInterviewApplication {
 
   static void executeWrapper(CommandLineInterviewApplication cliApp) {
     try {
+      cliApp.parseArgs();
+      cliApp.validateArgs();
       cliApp.execute();
     } catch (RuntimeException e) {
-      if (e instanceof ParameterException) {
+      if (e instanceof ParameterException || e instanceof IllegalArgumentException) {
         cliApp.commander.usage();
+        cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
+      } else {
+        // unexpected exception: dump stack trace
+        cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
+        consoleTrace(cliApp.commander.getConsole(), e);
+        throw e;
       }
-      cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
-      consoleTrace(cliApp.commander.getConsole(), e);
     }
+
   }
 
   /**
@@ -66,13 +73,13 @@ public class CommandLineInterviewApplication {
     return outputFilePaths;
   }
 
-  protected AppFactory appFactory = new AppFactory();
-
-  private final JCommander commander;
-  private final CommandLineArgs parsedArguments;
+  AppFactory appFactory = new AppFactory();
+  final JCommander commander;
+  final String[] rawArgs;
+  CommandLineArgs parsedArguments;
 
   /**
-   * Primary constructor.
+   * Primary constructor. Our main method calls this.
    * 
    * @param args command-line arguments
    */
@@ -84,32 +91,54 @@ public class CommandLineInterviewApplication {
     this(new JCommander(args), args);
   }
 
+  /**
+   * Injection constructor for unit tests.
+   * 
+   * @param commander commander to inject
+   * @param args parsed args to inject
+   */
   CommandLineInterviewApplication(JCommander commander, CommandLineArgs args) {
     this.commander = commander;
     this.parsedArguments = args;
-    validateArgs();
+    this.rawArgs = null;
   }
 
   CommandLineInterviewApplication(JCommander commander, String[] args) {
     this.commander = commander;
-    this.parsedArguments = new CommandLineArgs();
-    commander.addObject(parsedArguments);
-    commander.parse(args);
-    validateArgs();
+    this.parsedArguments = null;
+    this.rawArgs = args;
   }
 
   /**
    * Execute this application.
    */
   void execute() {
-    if (!parsedArguments.isHelpCommand) {
-      InterviewApplication app = appFactory.get();
-      if (app != null) {
-        app.call();
+    if (parsedArguments != null) {
+      if (!parsedArguments.isHelpCommand) {
+        InterviewApplication app = appFactory.get();
+        if (app != null) {
+          app.call();
+        }
+      } else {
+        // just displaying help
+        commander.usage();
       }
     } else {
-      // just displaying help -- don't give back an apps
-      commander.usage();
+      throw new IllegalStateException("Caller did not validate arguments");
+    }
+  }
+
+  /**
+   * Unlike the injection constructors, the main constructor does not perform validation. Use this
+   * to do so.
+   * 
+   * @throws ParameterException when there is a problem with one or more arguments provided
+   */
+  void parseArgs() throws ParameterException {
+    if (this.parsedArguments == null) {
+      parsedArguments = new CommandLineArgs();
+      commander.addObject(parsedArguments);
+      commander.parse(rawArgs);
     }
   }
 
@@ -121,10 +150,10 @@ public class CommandLineInterviewApplication {
    */
   void validateArgs() {
     if (parsedArguments.outputDirectory == null) {
-      throw new ParameterException("outputDirectory cannot be null");
+      throw new IllegalArgumentException("outputDirectory cannot be null");
     }
     if (parsedArguments.inputFile == null) {
-      throw new ParameterException("inputFile cannot be null");
+      throw new IllegalArgumentException("inputFile cannot be null");
     }
   }
 

@@ -53,6 +53,13 @@ public class AggregateSampleWriter implements Closeable {
   private String path;
   private BufferedWriter writer;
 
+  /**
+   * Default constructor (for Mockito mocks only).
+   */
+  private AggregateSampleWriter() {
+    this(null /* writer */, 0 /* lineNo */, null /* path */);
+  }
+
   private AggregateSampleWriter(BufferedWriter writer, int lineNo, String path) {
     this.writer = writer;
     this.lineNo = lineNo;

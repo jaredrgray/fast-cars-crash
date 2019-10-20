@@ -56,55 +56,7 @@ public class TestCommandLineApplication {
   }
 
   private static final Logger LOG = getLogger(TestCommandLineApplication.class);
-
   private static final String CSV_EXTENSION = ".csv";
-
-  @Test
-  void testConstructorEmptyArgsFail() {
-    String[] args = new String[] {};
-    try {
-      new MockedCliApp(args);
-      fail("Expected ParameterException");
-    } catch (ParameterException e) {
-      assertTrue(e.getMessage().contains("cannot be null"));
-    }
-  }
-
-  @Test
-  void testConstructorNullArgsFail() throws IOException {
-    String methodName = "testConstructorNullArgsFail";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-
-    for (int i = 0; i + 1 < 1 << 2; i++) {
-      Path validDir = null;
-      Path validFile = null;
-      try {
-        validDir = Files.createTempDirectory(filePrefix);
-        validFile = Files.createTempFile(filePrefix, null /* suffix */);
-
-        // interpret i as a bitmask, where 0 indicates null
-        CommandLineArgs args = new CommandLineArgs();
-        args.inputFile = (i % 2) == 0 ? null : validFile.toString();
-        args.outputDirectory = ((i >> 1) % 2) == 0 ? null : validDir.toString();
-
-        // keep some code here to help a future programmer debug the bitmask
-        LOG.info(String.format("%s: %02d -- inputFileNull: %s, outputDirectoryNull: %s%n",
-            methodName, i, args.inputFile == null, args.outputDirectory == null));
-
-        new MockedCliApp(args);
-        fail("Expected ParameterException");
-      } catch (ParameterException e) {
-        assertTrue(e.getMessage().contains("cannot be null"));
-      } finally {
-        if (validDir != null) {
-          validDir.toFile().delete();
-        }
-        if (validFile != null) {
-          validFile.toFile().delete();
-        }
-      }
-    }
-  }
 
   @Test
   void testConstructorWorksWithValidCliArgs() throws IOException {
@@ -117,24 +69,6 @@ public class TestCommandLineApplication {
     CommandLineArgs args = new CommandLineArgs();
     args.inputFile = validFile.toString();
     args.outputDirectory = validDir.toString();
-    try {
-      new MockedCliApp(args);
-    } finally {
-      validDir.toFile().delete();
-      validFile.toFile().delete();
-    }
-  }
-
-  @Test
-  void testConstructorWorksWithValidRawArgs() throws IOException {
-    String methodName = "testConstructorWorksWithValidRawArgs";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-
-    Path validDir = Files.createTempDirectory(filePrefix);;
-    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
-
-    String[] args =
-        new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w", "1"};
     try {
       new MockedCliApp(args);
     } finally {
@@ -166,6 +100,8 @@ public class TestCommandLineApplication {
 
     try {
       executeWrapper(appSpy);
+      fail("expected NullPointerException");
+    } catch (NullPointerException e) {
       verify(spyCommander, never()).usage();
     } finally {
       validDir.toFile().delete();
@@ -190,7 +126,7 @@ public class TestCommandLineApplication {
 
     JCommander mockCommander = mock(JCommander.class, Mockito.RETURNS_DEEP_STUBS);
     MockedCliApp appSpy = spy(new MockedCliApp(mockCommander, args));
-    doThrow(new ParameterException("POOP")).when(appSpy).execute();
+    doThrow(new ParameterException("POOP")).when(appSpy).parseArgs();
 
     try {
       executeWrapper(appSpy);
@@ -274,6 +210,60 @@ public class TestCommandLineApplication {
     } finally {
       validDir.toFile().delete();
       validFile.toFile().delete();
+    }
+  }
+
+  @Test
+  void testMainWorksWithValidRawArgs() throws IOException {
+    String methodName = "testConstructorWorksWithValidRawArgs";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+
+    Path validDir = Files.createTempDirectory(filePrefix);;
+    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
+
+    try {
+      main(new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w",
+          "1"});
+    } finally {
+      validDir.toFile().delete();
+      validFile.toFile().delete();
+    }
+  }
+
+  @Test
+  void testValidateNullArgsFail() throws IOException {
+    String methodName = "testConstructorNullArgsFail";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+
+    for (int i = 0; i + 1 < 1 << 2; i++) {
+      Path validDir = null;
+      Path validFile = null;
+      try {
+        validDir = Files.createTempDirectory(filePrefix);
+        validFile = Files.createTempFile(filePrefix, null /* suffix */);
+
+        // interpret i as a bitmask, where 0 indicates null
+        CommandLineArgs args = new CommandLineArgs();
+        args.inputFile = (i % 2) == 0 ? null : validFile.toString();
+        args.outputDirectory = ((i >> 1) % 2) == 0 ? null : validDir.toString();
+
+        // keep some code here to help a future programmer debug the bitmask
+        LOG.info(String.format("%s: %02d -- inputFileNull: %s, outputDirectoryNull: %s", methodName,
+            i, args.inputFile == null, args.outputDirectory == null));
+
+        MockedCliApp underTest = new MockedCliApp(args);
+        underTest.validateArgs();
+        fail("Expected IllegalArgumentException");
+      } catch (IllegalArgumentException e) {
+        assertTrue(e.getMessage().contains("cannot be null"));
+      } finally {
+        if (validDir != null) {
+          validDir.toFile().delete();
+        }
+        if (validFile != null) {
+          validFile.toFile().delete();
+        }
+      }
     }
   }
 
