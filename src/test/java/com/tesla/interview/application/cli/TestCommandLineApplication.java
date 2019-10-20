@@ -3,22 +3,18 @@ package com.tesla.interview.application.cli;
 import static com.tesla.interview.application.cli.CommandLineInterviewApplication.executeWrapper;
 import static com.tesla.interview.application.cli.CommandLineInterviewApplication.getOutputFiles;
 import static com.tesla.interview.application.cli.CommandLineInterviewApplication.main;
-import static com.tesla.interview.application.cli.CommandLineInterviewApplication.printTrace;
 import static org.apache.logging.log4j.LogManager.getLogger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
-import com.beust.jcommander.internal.Console;
 import com.tesla.interview.application.InterviewApplication;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -293,22 +289,6 @@ public class TestCommandLineApplication {
     } finally {
       tempDir.toFile().delete();
     }
-  }
-
-  @Test
-  void testPrintTraceSimple() {
-    Console mockConsole = mock(Console.class);
-    Exception onion = new Exception();
-    printTrace(mockConsole, onion);
-    verify(mockConsole, times(onion.getStackTrace().length + 1)).println(anyString());
-  }
-
-  @Test
-  void testPrintTraceWithNested() {
-    Console mockConsole = mock(Console.class);
-    Exception onion = new Exception(new Exception(new Exception()));
-    printTrace(mockConsole, onion);
-    verify(mockConsole, times(onion.getStackTrace().length + 1)).println(anyString());
   }
 
 }

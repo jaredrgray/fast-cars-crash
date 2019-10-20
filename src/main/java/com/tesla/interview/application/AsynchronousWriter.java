@@ -11,23 +11,152 @@ import java.io.File;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 import org.apache.logging.log4j.Logger;
 
 public class AsynchronousWriter implements Closeable {
 
-  private static final Logger LOG = getLogger(AsynchronousWriter.class);
+  class WriteScheduler extends Thread {
 
+    @Override
+    public void run() {
+
+      LOG.info(String.format("Starting scheduler -- numPartitions: %d", partitionNoToPath.size()));
+
+      Instant lastPrintTime = Instant.MIN;
+      int lastNumTasksScheduled = 0;
+      int lastNumTasksCompleted = 0;
+      while (!isClosed.get()) {
+        scheduleTasks();
+
+        // print status periodically
+        if (Duration.between(lastPrintTime, Instant.now()).compareTo(PRINT_INTERVAL) > 0) {
+          lastPrintTime = Instant.now();
+          String message = String.format("progress -- ");
+          boolean doPrint = false;
+          if (lastNumTasksScheduled < numWriteTasksScheduled.intValue()) {
+            message += String.format("numWriteTasksScheduled: %d",
+                numWriteTasksScheduled.intValue() - lastNumTasksScheduled);
+            doPrint = true;
+          }
+          lastNumTasksScheduled = numWriteTasksScheduled.intValue();
+          if (lastNumTasksCompleted < numWriteTasksCompleted.intValue()) {
+            if (doPrint) {
+              message += ", ";
+            }
+            message += String.format("numCompleted: %d",
+                numWriteTasksCompleted.intValue() - lastNumTasksCompleted);
+            doPrint = true;
+          }
+          
+          if (doPrint) {
+            LOG.info(message);
+          }
+          lastNumTasksCompleted = numWriteTasksCompleted.intValue();
+        }
+      }
+    }
+
+    private void scheduleTasks() {
+      bufferLock.lock();
+      try {
+        while (!isClosed.get() && bufferedWrites.isEmpty()) {
+          try {
+            bufferHasTask.await(POLL_DELAY.toMillis(), TimeUnit.MILLISECONDS);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+        }
+
+        if (!isClosed.get()) {
+          WriteTask nextTask = bufferedWrites.remove();
+          Future<WriteTask> taskFuture = executor.submit(nextTask);
+          nextTask.scheduledHook(taskFuture);
+        }
+      } finally {
+        bufferLock.unlock();
+      }
+    }
+  }
+  
+  class WriteTask implements Callable<WriteTask> {
+    private AggregateSample sample;
+    private AtomicReference<Future<WriteTask>> scheduled;
+
+    WriteTask(AggregateSample sample) {
+      this.sample = sample;
+      scheduled = new AtomicReference<Future<WriteTask>>(null /* initialValue */);
+    }
+
+    @Override
+    public WriteTask call() {
+      int partitionFromZero = sample.getPartitionNo() - 1;
+      String path = partitionNoToPath.getOrDefault(partitionFromZero, null /* defaultValue */);
+      AggregateSampleWriter writer = pathToWriter.getOrDefault(path, null /* defaultValue */);
+      if (path != null && writer != null) {
+        writer.writeSample(sample);
+        numWriteTasksCompleted.incrementAndGet();
+        return null /* success! */;
+      } else {
+        String message = String.format("Invalid path -- sample: %s, path: %s, writerExists: %b",
+            sample, path, writer != null);
+        throw new IllegalArgumentException(message); // null-safe
+      }
+    }
+
+    Future<WriteTask> awaitScheduling() {
+      while (scheduled.get() == null) {
+        try {
+          Thread.sleep(POLL_DELAY.toMillis());
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+      }
+      return scheduled.get();
+    }
+
+    void scheduledHook(Future<WriteTask> taskFuture) {
+      boolean itWorked = scheduled.compareAndSet(null, taskFuture);
+      if (!itWorked) {
+        throw new IllegalStateException("task scheduled more than once");
+      }
+      numWriteTasksScheduled.incrementAndGet();
+    }
+  }
+  
+  private static final Logger LOG = getLogger(AsynchronousWriter.class);
+  private static final Duration POLL_DELAY = Duration.ofMillis(100);
+  private static final Duration PRINT_INTERVAL = Duration.ofSeconds(15);
+  
+  final Queue<WriteTask> bufferedWrites;
+  final int bufferSize;
   final ExecutorService executor;
   final Map<Integer, String> partitionNoToPath;
   final Map<String, AggregateSampleWriter> pathToWriter;
+  final WriteScheduler scheduler = new WriteScheduler();
   final List<AggregateSampleWriter> writers;
+  
+  final Lock bufferLock = new ReentrantLock();
+  final Condition bufferHasRoom = bufferLock.newCondition();
+  final Condition bufferHasTask = bufferLock.newCondition();
+  final AtomicBoolean isClosed = new AtomicBoolean(false);
+  final AtomicInteger numWriteTasksCompleted = new AtomicInteger(0);
+  final AtomicInteger numWriteTasksScheduled = new AtomicInteger(0);
 
   /**
    * Constructor.
@@ -43,10 +172,15 @@ public class AsynchronousWriter implements Closeable {
       throw new IllegalArgumentException("partitionNoToPath cannot be empty");
     }
 
+    LOG.info(String.format("initializing thread pool -- threadPoolSize: %d", threadPoolSize));
     this.executor = Executors.newFixedThreadPool(threadPoolSize);
+    LOG.info("thread pool initialzied");
+
     this.partitionNoToPath = partitionNoToPath;
     this.writers = Lists.newArrayList();
     this.pathToWriter = Maps.newHashMap();
+    this.bufferedWrites = new ArrayDeque<>();
+    this.bufferSize = threadPoolSize;
 
     for (String path : partitionNoToPath.values()) {
       File file = Paths.get(path).toFile();
@@ -63,6 +197,8 @@ public class AsynchronousWriter implements Closeable {
             "Cannot specify identical path more than once -- path: " + path);
       }
     }
+
+    scheduler.start();
   }
 
   /**
@@ -78,37 +214,50 @@ public class AsynchronousWriter implements Closeable {
       ExecutorService executor,
       Map<Integer, String> partitionNoToPath,
       Map<String, AggregateSampleWriter> pathToWriter,
-      List<AggregateSampleWriter> writers) {
+      List<AggregateSampleWriter> writers,
+      Queue<WriteTask> bufferedWrites,
+      int bufferSize) {
     
     this.executor = executor;
     this.partitionNoToPath = partitionNoToPath;
     this.pathToWriter = pathToWriter;
     this.writers = writers;
+    this.bufferedWrites = bufferedWrites;
+    this.bufferSize = bufferSize;
+    
+    scheduler.start();
   }
   // @formatter:on
 
   @Override
   public void close() {
-    for (AggregateSampleWriter asw : pathToWriter.values()) {
-      asw.close();
-    }
-
-    executor.shutdown();
-    Duration waitDuration = Duration.ofSeconds(3); // TODO configurable timeout
-    Instant endWaitTime = Instant.now().plus(waitDuration);
-
-    while (Instant.now().isBefore(endWaitTime) && !executor.isTerminated()) {
-      try {
-        long waitTimeInMillis = Duration.between(Instant.now(), endWaitTime).toMillis() / 2;
-        executor.awaitTermination(waitTimeInMillis, TimeUnit.MILLISECONDS);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
+    if (isClosed.compareAndSet(false, true)) {
+      for (AggregateSampleWriter asw : pathToWriter.values()) {
+        asw.close();
       }
-    }
 
-    if (!executor.isTerminated()) {
-      LOG.warn(String.format("Could not shut down executor service within %d %s",
-          waitDuration.getSeconds(), TimeUnit.SECONDS.name().toLowerCase()));
+      Duration maxWaitDuration = Duration.ofSeconds(3); // TODO configurable timeout
+
+      executor.shutdown();
+      Supplier<Boolean> notTerminated = () -> !executor.isTerminated();
+      Duration executorWaitDuration = bestEffortWait(maxWaitDuration, notTerminated);
+
+      if (!executor.isTerminated()) {
+        LOG.warn(
+            String.format("Could not shut down executor service within %s", executorWaitDuration));
+      } else {
+        LOG.info(
+            String.format("Shut down executor service successfully in %s", executorWaitDuration));
+      }
+
+      Supplier<Boolean> isAlive = () -> scheduler.isAlive();
+      Duration schedulerWaitDuration = bestEffortWait(maxWaitDuration, isAlive);
+
+      if (scheduler.isAlive()) {
+        LOG.warn(String.format("Could not shut down scheduler within %s", schedulerWaitDuration));
+      } else {
+        LOG.info(String.format("Shut down scheduler successfully in %s", schedulerWaitDuration));
+      }
     }
   }
 
@@ -118,20 +267,46 @@ public class AsynchronousWriter implements Closeable {
    * @param sample aggregation to write
    * @return a progress indicator for the write
    */
-  public Future<Void> writeSample(AggregateSample sample) {
-    return executor.submit(new Callable<Void>() {
-      @Override
-      public Void call() {
-        String path =
-            partitionNoToPath.getOrDefault(sample.getPartitionNo(), null /* defaultValue */);
-        AggregateSampleWriter writer = pathToWriter.getOrDefault(path, null /* defaultValue */);
-        if (path != null && writer != null) {
-          writer.writeSample(sample);
-          return null /* success! */;
-        } else {
-          throw new IllegalArgumentException("Invalid path: " + path); // null-safe
+  public Future<WriteTask> writeSample(AggregateSample sample) {
+    bufferLock.lock();
+    WriteTask task = null;
+    try {
+      while (bufferedWrites.size() == bufferSize) {
+        try {
+          bufferHasRoom.await();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
         }
       }
-    });
+
+      task = new WriteTask(sample);
+      bufferedWrites.add(task);
+      bufferHasTask.signal();
+    } finally {
+      bufferLock.unlock();
+    }
+
+    return task.awaitScheduling();
+  }
+
+  private Duration bestEffortWait(Duration maxWaitDuration, Supplier<Boolean> waitCondition) {
+
+    Instant startWaitTime = Instant.now();
+    Instant endWaitTime = startWaitTime.plus(maxWaitDuration);
+    while (Instant.now().isBefore(endWaitTime) && waitCondition.get()) {
+      try {
+        long waitTimeInMillis = Duration.between(Instant.now(), endWaitTime).toMillis() / 2;
+        executor.awaitTermination(waitTimeInMillis, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+
+    Duration actualWaitDuration = Duration.between(startWaitTime, Instant.now());
+    if (actualWaitDuration.compareTo(maxWaitDuration) > 0) {
+      return maxWaitDuration;
+    } else {
+      return actualWaitDuration;
+    }
   }
 }

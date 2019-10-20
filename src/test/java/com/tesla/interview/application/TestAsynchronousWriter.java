@@ -9,8 +9,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
-import com.beust.jcommander.internal.Maps;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Queues;
+import com.tesla.interview.application.AsynchronousWriter.WriteTask;
 import com.tesla.interview.io.AggregateSampleWriter;
 import com.tesla.interview.model.AggregateSample;
 import java.io.File;
@@ -22,6 +24,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -29,7 +32,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 
 public class TestAsynchronousWriter {
@@ -42,9 +44,10 @@ public class TestAsynchronousWriter {
   private AsynchronousWriter underTest;
   private Map<String, AggregateSampleWriter> pathToWriterSpies;
   private List<AggregateSampleWriter> allWriterSpies;
+  private Queue<WriteTask> bufferQueue;
+  private int bufferSize;
 
   @BeforeEach
-  @Order(1)
   void beforeEach() throws IOException {
     filesToWrite = Lists.newArrayList();
     for (int i = 0; i < 10; i++) {
@@ -60,10 +63,13 @@ public class TestAsynchronousWriter {
       partitionToPath.put(fileNo, nextPath);
       fileNo++;
     }
+
+    bufferQueue = Queues.newArrayDeque();
+    pathToWriterSpies = Maps.newHashMap();
+    bufferSize = 10;
   }
 
   private void createWriterSpies() {
-    pathToWriterSpies = Maps.newHashMap();
     allWriterSpies = Lists.newArrayList();
     for (Path p : filesToWrite) {
       AggregateSampleWriter writerSpy = spy(AggregateSampleWriter.fromFile(p.toFile()));
@@ -165,8 +171,8 @@ public class TestAsynchronousWriter {
       }
     });
 
-    underTest = new AsynchronousWriter(executorService, partitionToPath, Maps.newHashMap(),
-        Lists.newArrayList());
+    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies,
+        allWriterSpies, bufferQueue, bufferSize);
     underTest.close();
   }
 
@@ -188,8 +194,8 @@ public class TestAsynchronousWriter {
       }
     });
 
-    underTest = new AsynchronousWriter(executorService, partitionToPath, Maps.newHashMap(),
-        Lists.newArrayList());
+    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies,
+        allWriterSpies, bufferQueue, bufferSize);
     underTest.close();
     assertTrue(executorService.isShutdown());
     assertFalse(executorService.isTerminated());
@@ -219,19 +225,19 @@ public class TestAsynchronousWriter {
   void testWriteSamplePositiveOnePartition() throws InterruptedException, ExecutionException {
     createWriterSpies();
     ExecutorService executorService = Executors.newSingleThreadExecutor();
-    underTest =
-        new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies, allWriterSpies);
+    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies,
+        allWriterSpies, bufferQueue, bufferSize);
 
     int partitionNo = 2;
-    AggregateSample sample =
-        new AggregateSample(0 /* aggregateValue */, "1" /* id */, partitionNo, 3 /* timestamp */);
-    Future<Void> f = underTest.writeSample(sample);
+    AggregateSample sample = new AggregateSample(0 /* aggregateValue */, "1" /* id */,
+        partitionNo + 1, 3 /* timestamp */);
+    Future<WriteTask> f = underTest.writeSample(sample);
     f.get();
 
     String writtenPath = partitionToPath.get(partitionNo);
     AggregateSampleWriter spyWriter = pathToWriterSpies.get(writtenPath);
     for (AggregateSampleWriter spy : allWriterSpies) {
-      if (spy == spyWriter) {
+      if (spy.equals(spyWriter)) {
         verify(spyWriter).writeSample(eq(sample));
       } else {
         verify(spy, never()).writeSample(any(AggregateSample.class));
@@ -243,20 +249,20 @@ public class TestAsynchronousWriter {
   void testWriteSamplePositiveThreePartitions() throws InterruptedException, ExecutionException {
     createWriterSpies();
     ExecutorService executorService = Executors.newSingleThreadExecutor();
-    underTest =
-        new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies, allWriterSpies);
+    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies,
+        allWriterSpies, bufferQueue, bufferSize);
 
     int numPartitions = 3;
-    List<Future<Void>> futures = Lists.newArrayList();
+    List<Future<WriteTask>> futures = Lists.newArrayList();
     List<AggregateSample> samples = Lists.newArrayList();
     for (int partitionNo = 0; partitionNo < numPartitions; partitionNo++) {
       AggregateSample sample = new AggregateSample(partitionNo /* aggregateValue */,
-          UUID.randomUUID().toString() /* id */, partitionNo, partitionNo + 1 /* timestamp */);
+          UUID.randomUUID().toString() /* id */, partitionNo + 1, partitionNo + 2 /* timestamp */);
       samples.add(sample);
       futures.add(underTest.writeSample(sample));
     }
 
-    for (Future<Void> f : futures) {
+    for (Future<WriteTask> f : futures) {
       f.get();
     }
 

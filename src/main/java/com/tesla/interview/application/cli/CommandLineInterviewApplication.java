@@ -1,8 +1,9 @@
 package com.tesla.interview.application.cli;
 
+import static com.tesla.interview.application.ApplicationTools.consoleTrace;
+
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
-import com.beust.jcommander.internal.Console;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 import com.tesla.interview.application.InterviewApplication;
@@ -32,7 +33,7 @@ public class CommandLineInterviewApplication {
         cliApp.commander.usage();
       }
       cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
-      printTrace(cliApp.commander.getConsole(), e);
+      consoleTrace(cliApp.commander.getConsole(), e);
     }
   }
 
@@ -63,41 +64,6 @@ public class CommandLineInterviewApplication {
    */
   public static void main(String[] args) {
     executeWrapper(new CommandLineInterviewApplication(args));
-  }
-
-  /**
-   * Print a stack trace of the input exception to the provided console.
-   * <p>
-   * Package-visible for unit tests.
-   * </p>
-   * 
-   * @param console console to which to print
-   * @param th exception to trace
-   */
-  static void printTrace(Console console, Throwable th) {
-
-    // get outermost exception
-    if (th.getCause() == null) {
-      console.println("Stack trace:");
-      StackTraceElement[] elements = th.getStackTrace();
-      int numDigits = String.valueOf(elements.length).length();
-
-      // print to console
-      String depthFormat = "%" + "0" + numDigits + "d";
-      for (int i = 1; i <= elements.length; i++) {
-        String depth = String.format(depthFormat, i);
-        // @formatter:off
-        console.println(new StringBuilder()
-            .append(depth)
-            .append(": ")
-            .append(elements[i - 1].toString())
-            .toString());
-        // @formatter:on
-      }
-    } else {
-      // recurse
-      printTrace(console, th.getCause());
-    }
   }
 
   protected AppFactory appFactory = new AppFactory();

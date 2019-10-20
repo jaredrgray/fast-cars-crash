@@ -9,7 +9,7 @@ public class AggregateSample {
   private final String id;
   private final int partitionNo;
   private final long timestamp;
-
+  
   /**
    * Constructor.
    * 
@@ -39,6 +39,12 @@ public class AggregateSample {
 
   public long getTimestamp() {
     return timestamp;
+  }
+
+  @Override
+  public String toString() {
+    return "AggregateSample [aggregateValue=" + aggregateValue + ", id=" + id + ", partitionNo="
+        + partitionNo + ", timestamp=" + timestamp + "]";
   }
 
 }
