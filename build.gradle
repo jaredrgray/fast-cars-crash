@@ -22,7 +22,16 @@ jacocoTestCoverageVerification {
     violationRules {
         rule {
             limit {
-                minimum = 0.9
+            	counter = 'LINE'
+				value = 'COVEREDRATIO'
+                minimum = 0.90
+            }
+        }
+        rule {
+            limit {
+            	counter = 'BRANCH'
+				value = 'COVEREDRATIO'
+                minimum = 0.80
             }
         }
     }
@@ -30,21 +39,6 @@ jacocoTestCoverageVerification {
 
 repositories {
     mavenCentral()
-}
-
-test {
-	group 'Verification'
-	description 'Runs all tests'
-
-	useJUnitPlatform() // jupiter
-	
-	doFirst {
-		unitTest
-	}
-	
-	doLast {
-		integrationTest
-	}
 }
 
 task integrationTest(type: Test) {
@@ -59,6 +53,29 @@ task unitTest(type: Test) {
 	include '**/UnitTestSuite.class'  
 }
 
+test {
+	group 'Verification'
+	description 'Runs all tests'
+	
+	useJUnitPlatform() // jupiter
+	
+	dependsOn unitTest
+	dependsOn integrationTest
+}
+
+check {
+	dependsOn jacocoTestCoverageVerification
+}
+
+task release() {
+	group 'Verification'
+	description 'runs all tests validates code coverage'
+	dependsOn check
+	dependsOn test
+	dependsOn jacocoTestReport
+	dependsOn jacocoTestCoverageVerification
+}
+
 ext {
    javaMainClass = "com.tesla.interview.application.cli.CommandLineInterviewApplication"
 }
@@ -67,7 +84,7 @@ application {
     mainClassName = javaMainClass
 }
 
-version = 0.1
+version = 1.0
 sourceCompatibility = 1.8
 
 dependencies {

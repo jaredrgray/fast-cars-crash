@@ -3,6 +3,7 @@ package com.tesla.interview.model;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 import com.google.common.collect.Sets;
+import com.tesla.interview.application.Generated;
 import java.util.Set;
 import org.apache.logging.log4j.Logger;
 
@@ -91,6 +92,7 @@ public class MeasurementSample {
   }
 
   @SuppressWarnings("checkstyle:NeedBraces")
+  @Generated
   @Override
   public boolean equals(Object obj) {
     if (this == obj)
