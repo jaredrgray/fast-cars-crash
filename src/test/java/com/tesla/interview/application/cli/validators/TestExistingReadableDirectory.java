@@ -18,17 +18,6 @@ public class TestExistingReadableDirectory {
   private static final String PARAM_NAME = "parameterName";
 
   @Test
-  public void testNullValueFails() {
-    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
-    try {
-      underTest.validate(PARAM_NAME, null /* value */);
-      fail("Expected ParameterException");
-    } catch (ParameterException e) {
-      assertTrue(e.getMessage().contains("cannot be null"));
-    }
-  }
-
-  @Test
   public void testEmptyValueFails() {
     ExistingReadableDirectory underTest = new ExistingReadableDirectory();
     try {
@@ -49,30 +38,6 @@ public class TestExistingReadableDirectory {
       underTest.validate(PARAM_NAME, created.toString());
     } finally {
       created.toFile().delete();
-    }
-  }
-
-  @Test
-  public void testNullPathFails() {
-    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
-    try {
-      underTest.validatePath(PARAM_NAME, null /* path */);
-      fail("Expected ParameterException");
-    } catch (ParameterException e) {
-      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
-    }
-  }
-
-  @Test
-  public void testNullFileFails() {
-    Path path = mock(Path.class);
-    when(path.toFile()).thenReturn(null);
-    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
-    try {
-      underTest.validatePath(PARAM_NAME, path);
-      fail("Expected ParameterException");
-    } catch (ParameterException e) {
-      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
     }
   }
 
@@ -124,6 +89,41 @@ public class TestExistingReadableDirectory {
       fail("Expected ParameterException");
     } catch (ParameterException e) {
       assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
+    }
+  }
+
+  @Test
+  public void testNullFileFails() {
+    Path path = mock(Path.class);
+    when(path.toFile()).thenReturn(null);
+    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
+    try {
+      underTest.validatePath(PARAM_NAME, path);
+      fail("Expected ParameterException");
+    } catch (ParameterException e) {
+      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
+    }
+  }
+
+  @Test
+  public void testNullPathFails() {
+    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
+    try {
+      underTest.validatePath(PARAM_NAME, null /* path */);
+      fail("Expected ParameterException");
+    } catch (ParameterException e) {
+      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
+    }
+  }
+
+  @Test
+  public void testNullValueFails() {
+    ExistingReadableDirectory underTest = new ExistingReadableDirectory();
+    try {
+      underTest.validate(PARAM_NAME, null /* value */);
+      fail("Expected ParameterException");
+    } catch (ParameterException e) {
+      assertTrue(e.getMessage().contains("cannot be null"));
     }
   }
 

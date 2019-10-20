@@ -26,10 +26,6 @@ import org.mockito.Mockito;
 
 public class TestCommandLineApplication {
 
-  private static final Logger LOG = getLogger(TestCommandLineApplication.class);
-
-  private static final String CSV_EXTENSION = ".csv";
-
   /**
    * This is a normal {@link CommandLineInterviewApplication} except that
    * {@link CommandLineInterviewApplication#appFactory} returns a mock.
@@ -39,9 +35,13 @@ public class TestCommandLineApplication {
    */
   private class MockedCliApp extends CommandLineInterviewApplication {
 
+    private MockedCliApp(CommandLineArgs args) {
+      super(args);
+    }
+
     private MockedCliApp(JCommander commander, CommandLineArgs args) {
       super(commander, args);
-      
+
       appFactory = new AppFactory() {
         @Override
         public InterviewApplication get() {
@@ -53,48 +53,11 @@ public class TestCommandLineApplication {
     private MockedCliApp(String[] args) {
       super(args);
     }
-
-    private MockedCliApp(CommandLineArgs args) {
-      super(args);
-    }
   }
 
-  @Test
-  void testConstructorWorksWithValidRawArgs() throws IOException {
-    String methodName = "testConstructorWorksWithValidRawArgs";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+  private static final Logger LOG = getLogger(TestCommandLineApplication.class);
 
-    Path validDir = Files.createTempDirectory(filePrefix);;
-    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
-
-    String[] args =
-        new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w", "1"};
-    try {
-      new MockedCliApp(args);
-    } finally {
-      validDir.toFile().delete();
-      validFile.toFile().delete();
-    }
-  }
-
-  @Test
-  void testConstructorWorksWithValidCliArgs() throws IOException {
-    String methodName = "testConstructorWorksWithValidCliArgs";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-
-    Path validDir = Files.createTempDirectory(filePrefix);;
-    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);;
-
-    CommandLineArgs args = new CommandLineArgs();
-    args.inputFile = validFile.toString();
-    args.outputDirectory = validDir.toString();
-    try {
-      new MockedCliApp(args);
-    } finally {
-      validDir.toFile().delete();
-      validFile.toFile().delete();
-    }
-  }
+  private static final String CSV_EXTENSION = ".csv";
 
   @Test
   void testConstructorEmptyArgsFail() {
@@ -144,31 +107,18 @@ public class TestCommandLineApplication {
   }
 
   @Test
-  void testValidCommandDoesNotShowUsage() {
-    CommandLineArgs args = new CommandLineArgs();
-    args.inputFile = "inputFile";
-    args.isHelpCommand = false;
-    args.numPartitions = 1;
-    args.outputDirectory = "outdir";
-
-    JCommander mockCmder = mock(JCommander.class);
-    MockedCliApp underTest = new MockedCliApp(mockCmder, args);
-    underTest.execute();
-    verify(mockCmder, never()).usage();
-  }
-
-  @Test
-  void testMainExecutesSuccessfullyWithValidArguments() throws IOException {
-    String methodName = "testMainExecutesSuccessfullyWithValidArguments";
+  void testConstructorWorksWithValidCliArgs() throws IOException {
+    String methodName = "testConstructorWorksWithValidCliArgs";
     String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
 
     Path validDir = Files.createTempDirectory(filePrefix);;
-    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
-    String[] args =
-        new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w", "1"};
+    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);;
 
+    CommandLineArgs args = new CommandLineArgs();
+    args.inputFile = validFile.toString();
+    args.outputDirectory = validDir.toString();
     try {
-      main(args);
+      new MockedCliApp(args);
     } finally {
       validDir.toFile().delete();
       validFile.toFile().delete();
@@ -176,30 +126,20 @@ public class TestCommandLineApplication {
   }
 
   @Test
-  void testExecuteWrapperPrintsUsageUponInvalidArgument() throws IOException {
-    String methodName = "testExecuteWrapperPrintsUsageUponInvalidArgument";
+  void testConstructorWorksWithValidRawArgs() throws IOException {
+    String methodName = "testConstructorWorksWithValidRawArgs";
     String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
 
     Path validDir = Files.createTempDirectory(filePrefix);;
-    Path invalidFile = Files.createTempFile(filePrefix, null /* suffix */);
-    invalidFile.toFile().delete();
+    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
 
-    CommandLineArgs args = new CommandLineArgs();
-    args.inputFile = invalidFile.toString();
-    args.outputDirectory = validDir.toString();
-    args.isHelpCommand = false;
-    args.numPartitions = 1;
-    args.numWriteThreads = 1;
-
-    JCommander mockCommander = mock(JCommander.class, Mockito.RETURNS_DEEP_STUBS);
-    MockedCliApp appSpy = spy(new MockedCliApp(mockCommander, args));
-    doThrow(new ParameterException("POOP")).when(appSpy).execute();
-    
+    String[] args =
+        new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w", "1"};
     try {
-      executeWrapper(appSpy);
-      verify(mockCommander).usage();
+      new MockedCliApp(args);
     } finally {
       validDir.toFile().delete();
+      validFile.toFile().delete();
     }
   }
 
@@ -233,17 +173,31 @@ public class TestCommandLineApplication {
   }
 
   @Test
-  void testHelpCommandShowsUsage() {
-    CommandLineArgs args = new CommandLineArgs();
-    args.inputFile = "inputFile";
-    args.isHelpCommand = true;
-    args.numPartitions = 1;
-    args.outputDirectory = "outdir";
+  void testExecuteWrapperPrintsUsageUponInvalidArgument() throws IOException {
+    String methodName = "testExecuteWrapperPrintsUsageUponInvalidArgument";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
 
-    JCommander mockCmder = mock(JCommander.class);
-    MockedCliApp underTest = new MockedCliApp(mockCmder, args);
-    underTest.execute();
-    verify(mockCmder).usage();
+    Path validDir = Files.createTempDirectory(filePrefix);;
+    Path invalidFile = Files.createTempFile(filePrefix, null /* suffix */);
+    invalidFile.toFile().delete();
+
+    CommandLineArgs args = new CommandLineArgs();
+    args.inputFile = invalidFile.toString();
+    args.outputDirectory = validDir.toString();
+    args.isHelpCommand = false;
+    args.numPartitions = 1;
+    args.numWriteThreads = 1;
+
+    JCommander mockCommander = mock(JCommander.class, Mockito.RETURNS_DEEP_STUBS);
+    MockedCliApp appSpy = spy(new MockedCliApp(mockCommander, args));
+    doThrow(new ParameterException("POOP")).when(appSpy).execute();
+
+    try {
+      executeWrapper(appSpy);
+      verify(mockCommander).usage();
+    } finally {
+      validDir.toFile().delete();
+    }
   }
 
   @Test
@@ -289,6 +243,52 @@ public class TestCommandLineApplication {
     } finally {
       tempDir.toFile().delete();
     }
+  }
+
+  @Test
+  void testHelpCommandShowsUsage() {
+    CommandLineArgs args = new CommandLineArgs();
+    args.inputFile = "inputFile";
+    args.isHelpCommand = true;
+    args.numPartitions = 1;
+    args.outputDirectory = "outdir";
+
+    JCommander mockCmder = mock(JCommander.class);
+    MockedCliApp underTest = new MockedCliApp(mockCmder, args);
+    underTest.execute();
+    verify(mockCmder).usage();
+  }
+
+  @Test
+  void testMainExecutesSuccessfullyWithValidArguments() throws IOException {
+    String methodName = "testMainExecutesSuccessfullyWithValidArguments";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+
+    Path validDir = Files.createTempDirectory(filePrefix);;
+    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
+    String[] args =
+        new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w", "1"};
+
+    try {
+      main(args);
+    } finally {
+      validDir.toFile().delete();
+      validFile.toFile().delete();
+    }
+  }
+
+  @Test
+  void testValidCommandDoesNotShowUsage() {
+    CommandLineArgs args = new CommandLineArgs();
+    args.inputFile = "inputFile";
+    args.isHelpCommand = false;
+    args.numPartitions = 1;
+    args.outputDirectory = "outdir";
+
+    JCommander mockCmder = mock(JCommander.class);
+    MockedCliApp underTest = new MockedCliApp(mockCmder, args);
+    underTest.execute();
+    verify(mockCmder, never()).usage();
   }
 
 }

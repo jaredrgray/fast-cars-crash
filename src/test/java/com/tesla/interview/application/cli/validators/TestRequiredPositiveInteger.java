@@ -34,6 +34,12 @@ public class TestRequiredPositiveInteger {
   }
 
   @Test
+  public void testPositiveValueSucceeds() {
+    RequiredPositiveInteger underTest = new RequiredPositiveInteger();
+    underTest.validate(PARAM_NAME, 1 /* value */);
+  }
+
+  @Test
   public void testZeroValueFails() {
     RequiredPositiveInteger underTest = new RequiredPositiveInteger();
     try {
@@ -42,12 +48,6 @@ public class TestRequiredPositiveInteger {
     } catch (ParameterException e) {
       assertTrue(e.getMessage().contains(MUST_BE_A_POSITIVE_INTEGER));
     }
-  }
-
-  @Test
-  public void testPositiveValueSucceeds() {
-    RequiredPositiveInteger underTest = new RequiredPositiveInteger();
-    underTest.validate(PARAM_NAME, 1 /* value */);
   }
 
 }

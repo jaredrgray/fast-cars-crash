@@ -9,7 +9,7 @@ public class AggregateSample {
   private final String id;
   private final int partitionNo;
   private final long timestamp;
-  
+
   /**
    * Constructor.
    * 

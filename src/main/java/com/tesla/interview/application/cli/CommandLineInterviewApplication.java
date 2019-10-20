@@ -25,6 +25,15 @@ public class CommandLineInterviewApplication {
 
   private static final String OUTPUT_FILE_FORMAT = "output-file-%d.csv";
 
+  /**
+   * Run the application from the command line.
+   * 
+   * @param args command-line arguments
+   */
+  public static void main(String[] args) {
+    executeWrapper(new CommandLineInterviewApplication(args));
+  }
+
   static void executeWrapper(CommandLineInterviewApplication cliApp) {
     try {
       cliApp.execute();
@@ -57,19 +66,19 @@ public class CommandLineInterviewApplication {
     return outputFilePaths;
   }
 
-  /**
-   * Run the application from the command line.
-   * 
-   * @param args command-line arguments
-   */
-  public static void main(String[] args) {
-    executeWrapper(new CommandLineInterviewApplication(args));
-  }
-
   protected AppFactory appFactory = new AppFactory();
 
   private final JCommander commander;
   private final CommandLineArgs parsedArguments;
+
+  /**
+   * Primary constructor.
+   * 
+   * @param args command-line arguments
+   */
+  public CommandLineInterviewApplication(String[] args) {
+    this(new JCommander(), args);
+  }
 
   CommandLineInterviewApplication(CommandLineArgs args) {
     this(new JCommander(args), args);
@@ -87,15 +96,6 @@ public class CommandLineInterviewApplication {
     commander.addObject(parsedArguments);
     commander.parse(args);
     validateArgs();
-  }
-
-  /**
-   * Primary constructor.
-   * 
-   * @param args command-line arguments
-   */
-  public CommandLineInterviewApplication(String[] args) {
-    this(new JCommander(), args);
   }
 
   /**

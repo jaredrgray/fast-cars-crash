@@ -10,7 +10,7 @@ public class RequiredPositiveInteger implements IValueValidator<Integer> {
     if (value == null) {
       throw new ParameterException(String.format("%s cannot be null", name));
     }
-    
+
     if (value.intValue() <= 0) {
       throw new ParameterException(
           String.format("%s must be a positive integer (was %d)", name, value.intValue()));

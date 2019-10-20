@@ -8,7 +8,6 @@ import com.google.common.collect.Maps;
 import com.tesla.interview.application.AsynchronousWriter.WriteTask;
 import com.tesla.interview.io.MeasurementSampleReader;
 import com.tesla.interview.model.AggregateSample;
-import com.tesla.interview.model.IntegerHashtag;
 import com.tesla.interview.model.MeasurementSample;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -29,6 +28,8 @@ public class InterviewApplication implements Callable<Void> {
 
   private static final Logger LOG = getLogger(InterviewApplication.class);
 
+  private static final Duration PRINT_INTERVAL = Duration.ofSeconds(3);
+
   /**
    * Construct an aggregate from a sample.
    * <p/>
@@ -42,16 +43,14 @@ public class InterviewApplication implements Callable<Void> {
       throw new IllegalArgumentException("measurement cannot be null");
     }
 
-    int sum = 0;
-    for (IntegerHashtag hashtag : measurement.getHashtags()) {
-      sum += hashtag.getValue();
-    }
+    int sum = measurement.getHashtags().stream().mapToInt((ht) -> ht.getValue()).sum();
     return new AggregateSample(sum, measurement.getId(), measurement.getPartitionNo(),
         measurement.getTimestamp());
   }
 
   final Map<Integer, Integer> partitionNoToThreadNo; // note: partitions indexed from 0
   final MeasurementSampleReader reader;
+
   final Map<Integer, AsynchronousWriter> threadNumToWriter;
 
   /**
@@ -127,50 +126,34 @@ public class InterviewApplication implements Callable<Void> {
   }
   // @formatter:on
 
-  private static final Duration PRINT_INTERVAL = Duration.ofSeconds(3);
-
   @Override
   public Void call() {
 
     LOG.info("starting application");
 
-    // spawn all writes
     LOG.info("spawning write tasks");
-    Instant lastPrintTime = Instant.MIN;
-    int spawnCount = 0;
-    int lastSpawnCount = 0;
-    Queue<Future<WriteTask>> q = new ArrayDeque<>();
-    while (reader.hasNext()) {
-      AggregateSample aggregate = aggregateMeasurement(reader.next());
-      // convert from: index-from-one, to: index-from-zero
-      int partitionNo = aggregate.getPartitionNo() - 1;
-      int threadNo = partitionNoToThreadNo.getOrDefault(partitionNo, -1 /* defaultValue */);
-      AsynchronousWriter writer = threadNumToWriter.getOrDefault(threadNo, null /* defaultValue */);
-      if (writer != null) {
-        q.add(writer.writeSample(aggregate));
-        spawnCount++;
-      } else {
-        // if this happens, InterviewApplication is bugged!
-        String message = String.format("No writer found -- partitionNo: %s, threadNo: %d",
-            partitionNo, threadNo);
-        LOG.fatal(message);
-        throw new IllegalStateException(message);
-      }
-
-      // print status periodically
-      if (Duration.between(lastPrintTime, Instant.now()).compareTo(PRINT_INTERVAL) > 0) {
-        
-        lastPrintTime = Instant.now();
-        if (spawnCount > lastSpawnCount) {
-          LOG.info(String.format("spawned new write tasks -- numSpawned: %d",
-              spawnCount - lastSpawnCount));
-        }
-        lastSpawnCount = spawnCount;
-      }
-    }
-
+    Queue<Future<WriteTask>> q = spawnWrites();
     LOG.info(String.format("all write tasks spawned -- numSpawned: %d", q.size()));
 
+    LOG.info("waiting for in-flight writes to complete");
+    awaitWrites(q);
+    LOG.info("all write tasks have completed");
+
+    LOG.info("stopping application");
+
+    // tidy the room
+    reader.close();
+    for (AsynchronousWriter writer : threadNumToWriter.values()) {
+      writer.close();
+    }
+
+    // all done!
+    LOG.info("application stopped");
+    return null;
+  }
+
+  private void awaitWrites(Queue<Future<WriteTask>> q) {
+    Instant lastPrintTime;
     // wait for all writes to finish
     lastPrintTime = Instant.MIN;
     while (!q.isEmpty()) {
@@ -197,19 +180,41 @@ public class InterviewApplication implements Callable<Void> {
         LOG.info(String.format("awaiting write task completion -- numRemaining: %d", q.size()));
       }
     }
+  }
 
-    LOG.info("all write tasks have completed");
+  private Queue<Future<WriteTask>> spawnWrites() {
+    Instant lastPrintTime = Instant.MIN;
+    int spawnCount = 0;
+    int lastSpawnCount = 0;
+    Queue<Future<WriteTask>> q = new ArrayDeque<>();
+    while (reader.hasNext()) {
+      AggregateSample aggregate = aggregateMeasurement(reader.next());
+      // convert from: index-from-one, to: index-from-zero
+      int partitionNo = aggregate.getPartitionNo() - 1;
+      int threadNo = partitionNoToThreadNo.getOrDefault(partitionNo, -1 /* defaultValue */);
+      AsynchronousWriter writer = threadNumToWriter.getOrDefault(threadNo, null /* defaultValue */);
+      if (writer != null) {
+        q.add(writer.writeSample(aggregate));
+        spawnCount++;
+      } else {
+        // if this happens, InterviewApplication is bugged!
+        String message = String.format("No writer found -- partitionNo: %s, threadNo: %d",
+            partitionNo, threadNo);
+        LOG.fatal(message);
+        throw new IllegalStateException(message);
+      }
 
-    LOG.info("stopping application");
+      // print status periodically
+      if (Duration.between(lastPrintTime, Instant.now()).compareTo(PRINT_INTERVAL) > 0) {
 
-    // tidy the room
-    reader.close();
-    for (AsynchronousWriter writer : threadNumToWriter.values()) {
-      writer.close();
+        lastPrintTime = Instant.now();
+        if (spawnCount > lastSpawnCount) {
+          LOG.info(String.format("spawned new write tasks -- numSpawned: %d",
+              spawnCount - lastSpawnCount));
+        }
+        lastSpawnCount = spawnCount;
+      }
     }
-
-    // all done!
-    LOG.info("application stopped");
-    return null;
+    return q;
   }
 }

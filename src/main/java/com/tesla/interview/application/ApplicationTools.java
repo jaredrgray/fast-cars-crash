@@ -8,6 +8,17 @@ import org.apache.logging.log4j.Logger;
 public class ApplicationTools {
 
   /**
+   * Print a trace of the supplied exception to the console.
+   * 
+   * @param console console to which to print
+   * @param th exception to print
+   */
+  public static void consoleTrace(Console console, Throwable th) {
+    Consumer<String> printFun = (String message) -> console.println(message);
+    printTrace(printFun, th);
+  }
+
+  /**
    * Print a trace of the supplied exception to the log.
    * 
    * @param logger logger to which to print
@@ -16,17 +27,6 @@ public class ApplicationTools {
    */
   public static void logTrace(Logger logger, Level logLevel, Throwable th) {
     Consumer<String> printFun = (String message) -> logger.log(logLevel, message);
-    printTrace(printFun, th);
-  }
-
-  /**
-   * Print a trace of the supplied exception to the console.
-   * 
-   * @param console console to which to print
-   * @param th exception to print
-   */
-  public static void consoleTrace(Console console, Throwable th) {
-    Consumer<String> printFun = (String message) -> console.println(message);
     printTrace(printFun, th);
   }
 

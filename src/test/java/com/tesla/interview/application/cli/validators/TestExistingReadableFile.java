@@ -18,17 +18,6 @@ public class TestExistingReadableFile {
   private static final String PARAM_NAME = "parameterName";
 
   @Test
-  public void testNullValueFails() {
-    ExistingReadableFile underTest = new ExistingReadableFile();
-    try {
-      underTest.validate(PARAM_NAME, null /* value */);
-      fail("Expected ParameterException");
-    } catch (ParameterException e) {
-      assertTrue(e.getMessage().contains("cannot be null"));
-    }
-  }
-
-  @Test
   public void testEmptyValueFails() {
     ExistingReadableFile underTest = new ExistingReadableFile();
     try {
@@ -49,46 +38,6 @@ public class TestExistingReadableFile {
       underTest.validate(PARAM_NAME, created.toString());
     } finally {
       created.toFile().delete();
-    }
-  }
-
-  @Test
-  public void testNullPathFails() {
-    ExistingReadableFile underTest = new ExistingReadableFile();
-    try {
-      underTest.validatePath(PARAM_NAME, null /* path */);
-      fail("Expected ParameterException");
-    } catch (ParameterException e) {
-      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
-    }
-  }
-
-  @Test
-  public void testNullFileFails() {
-    ExistingReadableFile underTest = new ExistingReadableFile();
-    Path path = mock(Path.class);
-    when(path.toFile()).thenReturn(null);
-    try {
-      underTest.validatePath(PARAM_NAME, path);
-      fail("Expected ParameterException");
-    } catch (ParameterException e) {
-      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
-    }
-  }
-
-  @Test
-  public void testNotExistingFails() {
-    ExistingReadableFile underTest = new ExistingReadableFile();
-    Path path = mock(Path.class);
-    File file = mock(File.class);
-    when(path.toFile()).thenReturn(file);
-    when(file.exists()).thenReturn(false);
-
-    try {
-      underTest.validatePath(PARAM_NAME, path);
-      fail("Expected ParameterException");
-    } catch (ParameterException e) {
-      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
     }
   }
 
@@ -124,6 +73,57 @@ public class TestExistingReadableFile {
       fail("Expected ParameterException");
     } catch (ParameterException e) {
       assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
+    }
+  }
+
+  @Test
+  public void testNotExistingFails() {
+    ExistingReadableFile underTest = new ExistingReadableFile();
+    Path path = mock(Path.class);
+    File file = mock(File.class);
+    when(path.toFile()).thenReturn(file);
+    when(file.exists()).thenReturn(false);
+
+    try {
+      underTest.validatePath(PARAM_NAME, path);
+      fail("Expected ParameterException");
+    } catch (ParameterException e) {
+      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
+    }
+  }
+
+  @Test
+  public void testNullFileFails() {
+    ExistingReadableFile underTest = new ExistingReadableFile();
+    Path path = mock(Path.class);
+    when(path.toFile()).thenReturn(null);
+    try {
+      underTest.validatePath(PARAM_NAME, path);
+      fail("Expected ParameterException");
+    } catch (ParameterException e) {
+      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
+    }
+  }
+
+  @Test
+  public void testNullPathFails() {
+    ExistingReadableFile underTest = new ExistingReadableFile();
+    try {
+      underTest.validatePath(PARAM_NAME, null /* path */);
+      fail("Expected ParameterException");
+    } catch (ParameterException e) {
+      assertTrue(e.getMessage().contains(MUST_BE_AN_EXISTING));
+    }
+  }
+
+  @Test
+  public void testNullValueFails() {
+    ExistingReadableFile underTest = new ExistingReadableFile();
+    try {
+      underTest.validate(PARAM_NAME, null /* value */);
+      fail("Expected ParameterException");
+    } catch (ParameterException e) {
+      assertTrue(e.getMessage().contains("cannot be null"));
     }
   }
 

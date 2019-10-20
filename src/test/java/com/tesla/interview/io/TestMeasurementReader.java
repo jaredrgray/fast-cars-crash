@@ -31,18 +31,39 @@ public class TestMeasurementReader {
   private static final String UNEXPECTED_ERROR_WHILE_READING = "Unexpected error while reading";
 
   @Test
-  void testConstructorSucceedsWithExistingFile() throws IOException {
-    String methodName = "testConstructorSucceedsWithExistingFile";
+  void testCloseWhenSuccessful() throws IOException {
+    String methodName = "testCloseWhenSuccessful";
     String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
     File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
-    MeasurementSampleReader underTest = null;
+    BufferedReader reader =
+        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
+    BufferedReader readerSpy = spy(reader);
     try {
-      underTest = new MeasurementSampleReader(sampleFile);
+      MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
+      underTest.close();
+      verify(readerSpy).close();
     } finally {
-      if (underTest != null) {
-        underTest.close();
-      }
+      sampleFile.delete();
+    }
+  }
+
+  @Test
+  void testCloseWhenUnsuccessful() throws IOException {
+    String methodName = "testCloseWhenUnsuccessful";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+
+    BufferedReader reader =
+        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
+    BufferedReader readerSpy = spy(reader);
+    doThrow(new IOException()).when(readerSpy).close();
+
+    try {
+      MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
+      underTest.close();
+      verify(readerSpy).close();
+    } finally {
       sampleFile.delete();
     }
   }
@@ -83,42 +104,68 @@ public class TestMeasurementReader {
   }
 
   @Test
-  void testCloseWhenSuccessful() throws IOException {
-    String methodName = "testCloseWhenSuccessful";
+  void testConstructorSucceedsWithExistingFile() throws IOException {
+    String methodName = "testConstructorSucceedsWithExistingFile";
     String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
     File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
-    BufferedReader reader =
-        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
-    BufferedReader readerSpy = spy(reader);
+    MeasurementSampleReader underTest = null;
     try {
-      MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
-      underTest.close();
-      verify(readerSpy).close();
+      underTest = new MeasurementSampleReader(sampleFile);
     } finally {
+      if (underTest != null) {
+        underTest.close();
+      }
       sampleFile.delete();
     }
   }
 
   @Test
-  void testCloseWhenUnsuccessful() throws IOException {
-    String methodName = "testCloseWhenUnsuccessful";
+  void testFailureWhenHasNextThrows() throws IOException {
+    String methodName = "testFailureWhenHasNextThrows";
     String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
     File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
     BufferedReader reader =
         new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
     BufferedReader readerSpy = spy(reader);
-    doThrow(new IOException()).when(readerSpy).close();
 
+    when(readerSpy.read()).thenThrow(new IOException());
+    MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
     try {
-      MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
-      underTest.close();
-      verify(readerSpy).close();
+      underTest.hasNext();
+      fail("Expected IllegalStateException");
+    } catch (IllegalStateException e) {
+      assertTrue(e.getMessage().contains(UNEXPECTED_ERROR_WHILE_READING));
     } finally {
+      underTest.close();
       sampleFile.delete();
     }
   }
+
+  @Test
+  void testFailureWhenNextThrows() throws IOException {
+    String methodName = "testFailureWhenNextThrows";
+    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+
+    BufferedReader reader =
+        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
+    BufferedReader readerSpy = spy(reader);
+
+    when(readerSpy.readLine()).thenThrow(new IOException());
+    MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
+    try {
+      underTest.next();
+      fail("Expected IllegalStateException");
+    } catch (IllegalStateException e) {
+      assertTrue(e.getMessage().contains(UNEXPECTED_ERROR_WHILE_READING));
+    } finally {
+      underTest.close();
+      sampleFile.delete();
+    }
+  }
+
 
   @Test
   void testReadsOneLine() throws IOException {
@@ -213,53 +260,6 @@ public class TestMeasurementReader {
           assertFalse(underTest.hasNext());
         }
       }
-    } finally {
-      underTest.close();
-      sampleFile.delete();
-    }
-  }
-
-
-  @Test
-  void testFailureWhenHasNextThrows() throws IOException {
-    String methodName = "testFailureWhenHasNextThrows";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-
-    BufferedReader reader =
-        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
-    BufferedReader readerSpy = spy(reader);
-
-    when(readerSpy.read()).thenThrow(new IOException());
-    MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
-    try {
-      underTest.hasNext();
-      fail("Expected IllegalStateException");
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains(UNEXPECTED_ERROR_WHILE_READING));
-    } finally {
-      underTest.close();
-      sampleFile.delete();
-    }
-  }
-  
-  @Test
-  void testFailureWhenNextThrows() throws IOException {
-    String methodName = "testFailureWhenNextThrows";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-
-    BufferedReader reader =
-        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
-    BufferedReader readerSpy = spy(reader);
-
-    when(readerSpy.readLine()).thenThrow(new IOException());
-    MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
-    try {
-      underTest.next();
-      fail("Expected IllegalStateException");
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains(UNEXPECTED_ERROR_WHILE_READING));
     } finally {
       underTest.close();
       sampleFile.delete();

@@ -35,6 +35,86 @@ public class TestInteviewApplication {
   private static final Logger LOG = getLogger(TestInteviewApplication.class);
   private static final Random rand = new Random(0xdeadbeef);
 
+  private void buildMaps(int numPartitions, int numThreads,
+      Map<Integer, Integer> partitionNumToThreadNo,
+      Map<Integer, List<Integer>> threadNumToPartitions) {
+    int partitionNum = 0;
+    while (partitionNum < numPartitions) {
+      int threadNo = partitionNum % numThreads;
+      List<Integer> partitions = threadNumToPartitions.getOrDefault(threadNo, Lists.newArrayList());
+      partitions.add(partitionNum);
+      threadNumToPartitions.put(threadNo, partitions);
+
+      partitionNumToThreadNo.put(partitionNum, threadNo);
+      partitionNum++;
+    }
+  }
+
+  private AsynchronousWriter createWriter(//
+      List<Path> filesCreated, //
+      Map<Integer, List<Integer>> threadNumToPartitions, //
+      String methodName, //
+      int threadNum) throws IOException {
+
+    List<Integer> partitionsForThread = threadNumToPartitions.get(threadNum);
+    Map<Integer, String> partitionNumToPath = Maps.newHashMap();
+    for (int partitionNum : partitionsForThread) {
+      String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+      Path newFile = Files.createTempFile(filePrefix/* prefix */, null /* suffix */);
+      filesCreated.add(newFile);
+      newFile.toFile().delete();
+      partitionNumToPath.put(partitionNum, newFile.toString());
+    }
+    return new AsynchronousWriter(partitionsForThread.size(), partitionNumToPath);
+  }
+
+  private Set<IntegerHashtag> randoHashtags() {
+    Set<IntegerHashtag> tags = Sets.newHashSet();
+    IntegerHashtag[] values = IntegerHashtag.values();
+    for (IntegerHashtag tag : values) {
+      if (rand.nextInt() % values.length == 0) {
+        tags.add(tag);
+      }
+    }
+    return tags;
+  }
+
+  private void stubHasNext(int numSamples, MeasurementSampleReader spyReader) {
+    OngoingStubbing<Boolean> w = when(spyReader.hasNext());
+    for (int i = 0; i < numSamples; i++) {
+      w = w.thenReturn(true);
+    }
+    w = w.thenReturn(false);
+  }
+
+  private List<MeasurementSample> stubNext(int numSamples, int numPartitions,
+      MeasurementSampleReader mockReader) {
+    OngoingStubbing<MeasurementSample> whenNext = when(mockReader.next());
+
+    List<MeasurementSample> created = Lists.newArrayList();
+    for (int i = 0; i < numSamples; i++) {
+      MeasurementSample rando = new MeasurementSample(// praise be the formatter
+          rand.nextLong(), // timestamp
+          1 + floorMod(rand.nextInt(), numPartitions), // partitionNum (note: indexed from one)
+          String.valueOf(rand.nextLong()), // id
+          randoHashtags()); // hashtags
+      whenNext = whenNext.thenReturn(rando);
+      created.add(rando);
+    }
+    whenNext = whenNext.thenThrow(new IllegalStateException("next() called too many times"));
+    return created;
+  }
+
+  @Test
+  void testAggregateMeasurementNegative() {
+    try {
+      aggregateMeasurement(null /* measurement */);
+      fail("expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().contains("cannot be null"));
+    }
+  }
+
   @Test
   void testAggregateMeasurementPositive() {
     int timestamp = 0;
@@ -52,12 +132,60 @@ public class TestInteviewApplication {
   }
 
   @Test
-  void testAggregateMeasurementNegative() {
+  void testCallHappyIntegration() throws IOException {
+    List<Path> filesCreated = Lists.newArrayList();
+    int numPartitions = 7;
+    int numThreads = 3;
+    int numSamples = 50;
+
     try {
-      aggregateMeasurement(null /* measurement */);
+
+      // build maps
+      Map<Integer, Integer> partitionNumToThreadNo = Maps.newHashMap();
+      Map<Integer, List<Integer>> threadNumToPartitions = Maps.newHashMap();
+      buildMaps(numPartitions, numThreads, partitionNumToThreadNo, threadNumToPartitions);
+
+      // create reader and writers
+      String methodName = "testCallHappyIntegration";
+      MeasurementSampleReader mockReader = mock(MeasurementSampleReader.class);
+      Map<Integer, AsynchronousWriter> threadNoToWriter = Maps.newHashMap();
+      for (int threadNum = 0; threadNum < numThreads; threadNum++) {
+        threadNoToWriter.put(threadNum,
+            spy(createWriter(filesCreated, threadNumToPartitions, methodName, threadNum)));
+      }
+
+      // build and run the app
+      InterviewApplication underTest =
+          new InterviewApplication(partitionNumToThreadNo, mockReader, threadNoToWriter);
+      stubHasNext(numSamples, mockReader);
+      List<MeasurementSample> ordered = stubNext(numSamples, numPartitions, mockReader);
+      underTest.call();
+
+      // verify all measurements were emitted in correct order
+      for (int i = 0; i < ordered.size(); i++) {
+        MeasurementSample sample = ordered.get(i);
+        int partitionNum = sample.getPartitionNo() - 1; // our map is indexed from zero
+        int expectedThreadNum = partitionNumToThreadNo.get(partitionNum);
+        AsynchronousWriter spyWriter = threadNoToWriter.get(expectedThreadNum);
+        AggregateSample expectedWritten = aggregateMeasurement(sample);
+        // verify(spyWriter.writeSample(eq(expectedWritten)));
+      }
+
+    } finally {
+      for (Path p : filesCreated) {
+        p.toFile().delete();
+      }
+    }
+  }
+
+  @Test
+  void testConstructorEmptyInputFile() {
+    try {
+      new InterviewApplication(1 /* numWriteThreads */, 1 /* maxFileHandles */,
+          Lists.newArrayList("valid"), "" /* inputFilePath */);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      assertTrue(e.getMessage().contains("cannot be null"));
+      assertTrue(e.getMessage().contains("must be non-empty"));
     }
   }
 
@@ -83,7 +211,7 @@ public class TestInteviewApplication {
         new Pair<>(Lists.newArrayList("valid1"), Lists.newArrayList());
     Pair<String> inputFilePath = new Pair<>("valid", null /* invalid */);
 
-    String methodName = "testInterviewAppConstructorFailsOnInvalidInputs";
+    String methodName = "testConstructorFailsOnInvalidInputs";
     for (int i = 0; i <= 1 << 4; i++) {
       boolean firstBitSet = (i >> 0) % 2 == 1;
       boolean secondBitSet = (i >> 1) % 2 == 1;
@@ -103,39 +231,6 @@ public class TestInteviewApplication {
       } catch (IllegalArgumentException e) {
         assert (e.getMessage().contains("must"));
       }
-    }
-  }
-
-  @Test
-  void testConstructorNegativeFileHandles() {
-    try {
-      new InterviewApplication(1 /* numWriteThreads */, -1 /* maxFileHandles */,
-          Lists.newArrayList("valid"), "valid");
-      fail("expected IllegalArgumentException");
-    } catch (IllegalArgumentException e) {
-      assertTrue(e.getMessage().contains("must be positive"));
-    }
-  }
-
-  @Test
-  void testConstructorZeroFileHandles() {
-    try {
-      new InterviewApplication(1 /* numWriteThreads */, 0 /* maxFileHandles */,
-          Lists.newArrayList("valid"), "valid");
-      fail("expected IllegalArgumentException");
-    } catch (IllegalArgumentException e) {
-      assertTrue(e.getMessage().contains("must be positive"));
-    }
-  }
-
-  @Test
-  void testConstructorEmptyInputFile() {
-    try {
-      new InterviewApplication(1 /* numWriteThreads */, 1 /* maxFileHandles */,
-          Lists.newArrayList("valid"), "" /* inputFilePath */);
-      fail("expected IllegalArgumentException");
-    } catch (IllegalArgumentException e) {
-      assertTrue(e.getMessage().contains("must be non-empty"));
     }
   }
 
@@ -239,119 +334,24 @@ public class TestInteviewApplication {
   }
 
   @Test
-  void testCallHappyIntegration() throws IOException {
-    List<Path> filesCreated = Lists.newArrayList();
-    int numPartitions = 7;
-    int numThreads = 3;
-    int numSamples = 50;
-
+  void testConstructorNegativeFileHandles() {
     try {
-
-      // build maps
-      Map<Integer, Integer> partitionNumToThreadNo = Maps.newHashMap();
-      Map<Integer, List<Integer>> threadNumToPartitions = Maps.newHashMap();
-      buildMaps(numPartitions, numThreads, partitionNumToThreadNo, threadNumToPartitions);
-
-      // create reader and writers
-      String methodName = "testCallHappyIntegration";
-      MeasurementSampleReader mockReader = mock(MeasurementSampleReader.class);
-      Map<Integer, AsynchronousWriter> threadNoToWriter = Maps.newHashMap();
-      for (int threadNum = 0; threadNum < numThreads; threadNum++) {
-        threadNoToWriter.put(threadNum,
-            spy(createWriter(filesCreated, threadNumToPartitions, methodName, threadNum)));
-      }
-
-      // build and run the app
-      InterviewApplication underTest =
-          new InterviewApplication(partitionNumToThreadNo, mockReader, threadNoToWriter);
-      stubHasNext(numSamples, mockReader);
-      List<MeasurementSample> ordered = stubNext(numSamples, numPartitions, mockReader);
-      underTest.call();
-
-      // verify all measurements were emitted in correct order
-      for (int i = 0; i < ordered.size(); i++) {
-        MeasurementSample sample = ordered.get(i);
-        int partitionNum = sample.getPartitionNo() - 1; // our map is indexed from zero
-        int expectedThreadNum = partitionNumToThreadNo.get(partitionNum);
-        AsynchronousWriter spyWriter = threadNoToWriter.get(expectedThreadNum);
-        AggregateSample expectedWritten = aggregateMeasurement(sample);
-        // verify(spyWriter.writeSample(eq(expectedWritten)));
-      }
-
-    } finally {
-      for (Path p : filesCreated) {
-        p.toFile().delete();
-      }
+      new InterviewApplication(1 /* numWriteThreads */, -1 /* maxFileHandles */,
+          Lists.newArrayList("valid"), "valid");
+      fail("expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().contains("must be positive"));
     }
   }
 
-  private List<MeasurementSample> stubNext(int numSamples, int numPartitions,
-      MeasurementSampleReader mockReader) {
-    OngoingStubbing<MeasurementSample> whenNext = when(mockReader.next());
-
-    List<MeasurementSample> created = Lists.newArrayList();
-    for (int i = 0; i < numSamples; i++) {
-      MeasurementSample rando = new MeasurementSample(// praise be the formatter
-          rand.nextLong(), // timestamp
-          1 + floorMod(rand.nextInt(), numPartitions), // partitionNum (note: indexed from one)
-          String.valueOf(rand.nextLong()), // id
-          randoHashtags()); // hashtags
-      whenNext = whenNext.thenReturn(rando);
-      created.add(rando);
-    }
-    whenNext = whenNext.thenThrow(new IllegalStateException("next() called too many times"));
-    return created;
-  }
-
-  private Set<IntegerHashtag> randoHashtags() {
-    Set<IntegerHashtag> tags = Sets.newHashSet();
-    IntegerHashtag[] values = IntegerHashtag.values();
-    for (IntegerHashtag tag : values) {
-      if (rand.nextInt() % values.length == 0) {
-        tags.add(tag);
-      }
-    }
-    return tags;
-  }
-
-  private void stubHasNext(int numSamples, MeasurementSampleReader spyReader) {
-    OngoingStubbing<Boolean> w = when(spyReader.hasNext());
-    for (int i = 0; i < numSamples; i++) {
-      w = w.thenReturn(true);
-    }
-    w = w.thenReturn(false);
-  }
-
-  private AsynchronousWriter createWriter(//
-      List<Path> filesCreated, //
-      Map<Integer, List<Integer>> threadNumToPartitions, //
-      String methodName, //
-      int threadNum) throws IOException {
-
-    List<Integer> partitionsForThread = threadNumToPartitions.get(threadNum);
-    Map<Integer, String> partitionNumToPath = Maps.newHashMap();
-    for (int partitionNum : partitionsForThread) {
-      String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-      Path newFile = Files.createTempFile(filePrefix/* prefix */, null /* suffix */);
-      filesCreated.add(newFile);
-      newFile.toFile().delete();
-      partitionNumToPath.put(partitionNum, newFile.toString());
-    }
-    return new AsynchronousWriter(partitionsForThread.size(), partitionNumToPath);
-  }
-
-  private void buildMaps(int numPartitions, int numThreads,
-      Map<Integer, Integer> partitionNumToThreadNo,
-      Map<Integer, List<Integer>> threadNumToPartitions) {
-    int partitionNum = 0;
-    while (partitionNum < numPartitions) {
-      int threadNo = partitionNum % numThreads;
-      List<Integer> partitions = threadNumToPartitions.getOrDefault(threadNo, Lists.newArrayList());
-      partitions.add(partitionNum);
-      threadNumToPartitions.put(threadNo, partitions);
-
-      partitionNumToThreadNo.put(partitionNum, threadNo);
-      partitionNum++;
+  @Test
+  void testConstructorZeroFileHandles() {
+    try {
+      new InterviewApplication(1 /* numWriteThreads */, 0 /* maxFileHandles */,
+          Lists.newArrayList("valid"), "valid");
+      fail("expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().contains("must be positive"));
     }
   }
 }

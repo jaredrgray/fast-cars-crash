@@ -26,8 +26,8 @@ public class ExistingReadableFile implements IValueValidator<String> {
    * @param path path to validate
    */
   void validatePath(String name, Path path) {
-    if (path == null || path.toFile() == null || !path.toFile().exists()
-        || !path.toFile().isFile() || !path.toFile().canRead()) {
+    if (path == null || path.toFile() == null || !path.toFile().exists() || !path.toFile().isFile()
+        || !path.toFile().canRead()) {
       throw new ParameterException(
           String.format("%s must be an existing, readable file (provided: %s)", name, path));
     }

@@ -82,6 +82,25 @@ public class TestAggregateWriter {
   }
 
   @Test
+  void testFromFileSucceedsWithNewFile() throws IOException {
+    final String methodName = "testWriteSucceedsWithMultipleWrites";
+    String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
+    File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+    file.delete();
+
+    AggregateSampleWriter underTest = null;
+    try {
+      underTest = AggregateSampleWriter.fromFile(file);
+      assertTrue(file.exists());
+    } finally {
+      if (underTest != null) {
+        underTest.close();
+      }
+      file.delete();
+    }
+  }
+
+  @Test
   void testWriteFailsWithBadWriter() throws IOException {
     final String methodName = "testConstructorFailsWithGoofyFile";
     String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
@@ -143,25 +162,6 @@ public class TestAggregateWriter {
 
     underTest.close();
     file.delete();
-  }
-
-  @Test
-  void testFromFileSucceedsWithNewFile() throws IOException {
-    final String methodName = "testWriteSucceedsWithMultipleWrites";
-    String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
-    File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-    file.delete();
-
-    AggregateSampleWriter underTest = null;
-    try {
-      underTest = AggregateSampleWriter.fromFile(file);
-      assertTrue(file.exists());
-    } finally {
-      if (underTest != null) {
-        underTest.close();
-      }
-      file.delete();
-    }
   }
 
 }

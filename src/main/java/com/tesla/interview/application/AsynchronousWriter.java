@@ -63,7 +63,7 @@ public class AsynchronousWriter implements Closeable {
                 numWriteTasksCompleted.intValue() - lastNumTasksCompleted);
             doPrint = true;
           }
-          
+
           if (doPrint) {
             LOG.info(message);
           }
@@ -93,7 +93,7 @@ public class AsynchronousWriter implements Closeable {
       }
     }
   }
-  
+
   class WriteTask implements Callable<WriteTask> {
     private AggregateSample sample;
     private AtomicReference<Future<WriteTask>> scheduled;
@@ -138,11 +138,11 @@ public class AsynchronousWriter implements Closeable {
       numWriteTasksScheduled.incrementAndGet();
     }
   }
-  
+
   private static final Logger LOG = getLogger(AsynchronousWriter.class);
   private static final Duration POLL_DELAY = Duration.ofMillis(100);
   private static final Duration PRINT_INTERVAL = Duration.ofSeconds(15);
-  
+
   final Queue<WriteTask> bufferedWrites;
   final int bufferSize;
   final ExecutorService executor;
@@ -150,7 +150,7 @@ public class AsynchronousWriter implements Closeable {
   final Map<String, AggregateSampleWriter> pathToWriter;
   final WriteScheduler scheduler = new WriteScheduler();
   final List<AggregateSampleWriter> writers;
-  
+
   final Lock bufferLock = new ReentrantLock();
   final Condition bufferHasRoom = bufferLock.newCondition();
   final Condition bufferHasTask = bufferLock.newCondition();

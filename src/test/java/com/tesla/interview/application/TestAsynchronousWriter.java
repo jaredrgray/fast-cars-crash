@@ -47,28 +47,6 @@ public class TestAsynchronousWriter {
   private Queue<WriteTask> bufferQueue;
   private int bufferSize;
 
-  @BeforeEach
-  void beforeEach() throws IOException {
-    filesToWrite = Lists.newArrayList();
-    for (int i = 0; i < 10; i++) {
-      File createdFile = File.createTempFile(getClass().getName(), null /* suffix */);
-      createdFile.delete();
-      filesToWrite.add(Paths.get(createdFile.getPath()));
-    }
-
-    partitionToPath = Maps.newHashMap();
-    int fileNo = 0;
-    while (fileNo < filesToWrite.size()) {
-      String nextPath = filesToWrite.get(fileNo).toString();
-      partitionToPath.put(fileNo, nextPath);
-      fileNo++;
-    }
-
-    bufferQueue = Queues.newArrayDeque();
-    pathToWriterSpies = Maps.newHashMap();
-    bufferSize = 10;
-  }
-
   private void createWriterSpies() {
     allWriterSpies = Lists.newArrayList();
     for (Path p : filesToWrite) {
@@ -92,88 +70,26 @@ public class TestAsynchronousWriter {
     }
   }
 
-  @Test
-  void testConstructorPositive() {
-    underTest = new AsynchronousWriter(1 /* threadPoolSize */, partitionToPath);
-  }
-
-  @Test
-  void testConstructorWithNegativePoolSizeFails() {
-    try {
-      underTest = new AsynchronousWriter(-1 /* threadPoolSize */, partitionToPath);
-      fail("expected IllegalArgumentException");
-    } catch (IllegalArgumentException e) {
-      assertTrue(e.getMessage().contains(MUST_BE_POSITIVE));
+  @BeforeEach
+  void beforeEach() throws IOException {
+    filesToWrite = Lists.newArrayList();
+    for (int i = 0; i < 10; i++) {
+      File createdFile = File.createTempFile(getClass().getName(), null /* suffix */);
+      createdFile.delete();
+      filesToWrite.add(Paths.get(createdFile.getPath()));
     }
-  }
 
-  @Test
-  void testConstructorWithEmptyPoolFails() {
-    try {
-      underTest = new AsynchronousWriter(0 /* threadPoolSize */, partitionToPath);
-      fail("expected IllegalArgumentException");
-    } catch (IllegalArgumentException e) {
-      assertTrue(e.getMessage().contains(MUST_BE_POSITIVE));
+    partitionToPath = Maps.newHashMap();
+    int fileNo = 0;
+    while (fileNo < filesToWrite.size()) {
+      String nextPath = filesToWrite.get(fileNo).toString();
+      partitionToPath.put(fileNo, nextPath);
+      fileNo++;
     }
-  }
 
-  @Test
-  void testConstructorWithDuplicatePathsFails() {
-    Map<Integer, String> customMap = Maps.newHashMap();
-    customMap.putAll(partitionToPath);
-
-    String dupPath = customMap.get(1);
-    customMap.put(2, dupPath);
-
-    try {
-      underTest = new AsynchronousWriter(1 /* threadPoolSize */, customMap);
-      fail("expected IllegalArgumentException");
-    } catch (IllegalArgumentException e) {
-      assertTrue(e.getMessage().contains("Cannot specify identical path"));
-    }
-  }
-
-  @Test
-  void testConstructorWithMissingFileFails() throws IOException {
-    Map<Integer, String> customMap = Maps.newHashMap();
-    customMap.putAll(partitionToPath);
-
-    Path tempDir = Files.createTempDirectory(null /* prefix */);
-    tempDir.toFile().delete();
-    String pathWithNoFile = tempDir.resolve("iDoNotExist").toString();
-    customMap.put(1, pathWithNoFile);
-
-    try {
-      underTest = new AsynchronousWriter(1 /* threadPoolSize */, customMap);
-      fail("expected IllegalStateException");
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains("Unable to open"));
-    }
-  }
-
-  @Test
-  void testCloseFastPath() {
-    underTest = new AsynchronousWriter(1 /* threadPoolSize */, partitionToPath);
-    underTest.close();
-  }
-
-  @Test
-  void testCloseSlowPath() {
-    ExecutorService executorService = Executors.newSingleThreadExecutor();
-    executorService.submit(new Runnable() {
-      @Override
-      public void run() {
-        try {
-          Thread.sleep(1000);
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-        }
-      }
-    });
-
-    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies,
-        allWriterSpies, bufferQueue, bufferSize);
-    underTest.close();
+    bufferQueue = Queues.newArrayDeque();
+    pathToWriterSpies = Maps.newHashMap();
+    bufferSize = 10;
   }
 
   @Test
@@ -202,12 +118,96 @@ public class TestAsynchronousWriter {
   }
 
   @Test
+  void testCloseFastPath() {
+    underTest = new AsynchronousWriter(1 /* threadPoolSize */, partitionToPath);
+    underTest.close();
+  }
+
+  @Test
+  void testCloseSlowPath() {
+    ExecutorService executorService = Executors.newSingleThreadExecutor();
+    executorService.submit(new Runnable() {
+      @Override
+      public void run() {
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+      }
+    });
+
+    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriterSpies,
+        allWriterSpies, bufferQueue, bufferSize);
+    underTest.close();
+  }
+
+  @Test
+  void testConstructorPositive() {
+    underTest = new AsynchronousWriter(1 /* threadPoolSize */, partitionToPath);
+  }
+
+  @Test
+  void testConstructorWithDuplicatePathsFails() {
+    Map<Integer, String> customMap = Maps.newHashMap();
+    customMap.putAll(partitionToPath);
+
+    String dupPath = customMap.get(1);
+    customMap.put(2, dupPath);
+
+    try {
+      underTest = new AsynchronousWriter(1 /* threadPoolSize */, customMap);
+      fail("expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().contains("Cannot specify identical path"));
+    }
+  }
+
+  @Test
   void testConstructorWithEmptyMapFails() {
     try {
       underTest = new AsynchronousWriter(1 /* threadPoolSize */, Maps.newHashMap());
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains(CANNOT_BE_EMPTY));
+    }
+  }
+
+  @Test
+  void testConstructorWithEmptyPoolFails() {
+    try {
+      underTest = new AsynchronousWriter(0 /* threadPoolSize */, partitionToPath);
+      fail("expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().contains(MUST_BE_POSITIVE));
+    }
+  }
+
+  @Test
+  void testConstructorWithMissingFileFails() throws IOException {
+    Map<Integer, String> customMap = Maps.newHashMap();
+    customMap.putAll(partitionToPath);
+
+    Path tempDir = Files.createTempDirectory(null /* prefix */);
+    tempDir.toFile().delete();
+    String pathWithNoFile = tempDir.resolve("iDoNotExist").toString();
+    customMap.put(1, pathWithNoFile);
+
+    try {
+      underTest = new AsynchronousWriter(1 /* threadPoolSize */, customMap);
+      fail("expected IllegalStateException");
+    } catch (IllegalStateException e) {
+      assertTrue(e.getMessage().contains("Unable to open"));
+    }
+  }
+
+  @Test
+  void testConstructorWithNegativePoolSizeFails() {
+    try {
+      underTest = new AsynchronousWriter(-1 /* threadPoolSize */, partitionToPath);
+      fail("expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().contains(MUST_BE_POSITIVE));
     }
   }
 

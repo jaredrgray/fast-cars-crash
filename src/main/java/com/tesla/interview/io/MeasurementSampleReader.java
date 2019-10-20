@@ -29,7 +29,7 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
   private volatile int lineNo;
   private final String path;
   private final BufferedReader reader;
-  
+
   /**
    * Constructor.
    * 
@@ -52,7 +52,7 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
     this.lineNo = 1;
     this.path = sampleFile.getPath();
   }
-  
+
   private MeasurementSampleReader(int lineNo, String path, BufferedReader reader) {
     this.lineNo = lineNo;
     this.path = path;
