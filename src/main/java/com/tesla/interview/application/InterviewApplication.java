@@ -27,7 +27,6 @@ import org.apache.logging.log4j.Logger;
 public class InterviewApplication implements Callable<Void> {
 
   private static final Logger LOG = getLogger(InterviewApplication.class);
-
   private static final Duration PRINT_INTERVAL = Duration.ofSeconds(3);
 
   /**
@@ -50,7 +49,6 @@ public class InterviewApplication implements Callable<Void> {
 
   final Map<Integer, Integer> partitionNoToThreadNo; // note: partitions indexed from 0
   final MeasurementSampleReader reader;
-
   final Map<Integer, AsynchronousWriter> threadNumToWriter;
 
   /**

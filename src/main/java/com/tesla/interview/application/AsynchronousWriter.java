@@ -36,7 +36,7 @@ public class AsynchronousWriter implements Closeable {
     @Override
     public void run() {
 
-      LOG.info(String.format("Starting scheduler -- numPartitions: %d", partitionNoToPath.size()));
+      LOG.info(String.format("Starting scheduler -- numPartitions: %d", partitionNumToPath.size()));
 
       Instant lastPrintTime = Instant.MIN;
       int lastNumTasksScheduled = 0;
@@ -106,7 +106,7 @@ public class AsynchronousWriter implements Closeable {
     @Override
     public WriteTask call() {
       int partitionFromZero = sample.getPartitionNo() - 1;
-      String path = partitionNoToPath.getOrDefault(partitionFromZero, null /* defaultValue */);
+      String path = partitionNumToPath.getOrDefault(partitionFromZero, null /* defaultValue */);
       AggregateSampleWriter writer = pathToWriter.getOrDefault(path, null /* defaultValue */);
       if (path != null && writer != null) {
         writer.writeSample(sample);
@@ -146,7 +146,7 @@ public class AsynchronousWriter implements Closeable {
   final Queue<WriteTask> bufferedWrites;
   final int bufferSize;
   final ExecutorService executor;
-  final Map<Integer, String> partitionNoToPath;
+  final Map<Integer, String> partitionNumToPath;
   final Map<String, AggregateSampleWriter> pathToWriter;
   final WriteScheduler scheduler = new WriteScheduler();
   final List<AggregateSampleWriter> writers;
@@ -176,7 +176,7 @@ public class AsynchronousWriter implements Closeable {
     this.executor = Executors.newFixedThreadPool(threadPoolSize);
     LOG.info("thread pool initialzied");
 
-    this.partitionNoToPath = partitionNoToPath;
+    this.partitionNumToPath = partitionNoToPath;
     this.writers = Lists.newArrayList();
     this.pathToWriter = Maps.newHashMap();
     this.bufferedWrites = new ArrayDeque<>();
@@ -219,7 +219,7 @@ public class AsynchronousWriter implements Closeable {
       int bufferSize) {
     
     this.executor = executor;
-    this.partitionNoToPath = partitionNoToPath;
+    this.partitionNumToPath = partitionNoToPath;
     this.pathToWriter = pathToWriter;
     this.writers = writers;
     this.bufferedWrites = bufferedWrites;
@@ -241,7 +241,6 @@ public class AsynchronousWriter implements Closeable {
       executor.shutdown();
       Supplier<Boolean> notTerminated = () -> !executor.isTerminated();
       Duration executorWaitDuration = bestEffortWait(maxWaitDuration, notTerminated);
-
       if (!executor.isTerminated()) {
         LOG.warn(
             String.format("Could not shut down executor service within %s", executorWaitDuration));
@@ -252,7 +251,6 @@ public class AsynchronousWriter implements Closeable {
 
       Supplier<Boolean> isAlive = () -> scheduler.isAlive();
       Duration schedulerWaitDuration = bestEffortWait(maxWaitDuration, isAlive);
-
       if (scheduler.isAlive()) {
         LOG.warn(String.format("Could not shut down scheduler within %s", schedulerWaitDuration));
       } else {
