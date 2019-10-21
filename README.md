@@ -100,7 +100,7 @@ Our program produces its output in the form of one or more output text files.  T
 Each line in the output file is a comma-separated list consisting of the following elements:
 
 1. Timestamp
-1. Asset id
+1. Asset identifier
 1. Aggregate value
 
 We define the aggregate value as the sum of the integers corresponding to the hashtags from an input sample.  Let us again consider the example line from input section.  The aggregate value for this sample is 7 + 3 + 6 = 16.
