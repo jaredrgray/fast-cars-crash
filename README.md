@@ -39,18 +39,11 @@ The program's parameters correspond to a specification for input and output (to 
 
 ### Example Usage
 
-Suppose we have a text file called `input.txt` containing only partitions 1-4 and an output directory named `outputDir`.  We can execute the command below within a shell to write the four output files:
+Suppose we have a text file called `input.txt` containing only partitions 1-4 and an output directory named `outputDir`.  We can execute the command below within a shell to write four output files, one for each partition:
 
 ```
  $ ./gradlew run --args="-i $HOME/Desktop/input.txt -o $HOME/Desktop/outputDir -p 4"
 ```
-
-Some tasks of note include:
-
-1. unitTest: execute all unit tests
-2. integrationTest: execute all integration tests
-3. jacocoTestReport: output code coverage in HTML format to `./build/jacocoHtml`
-4. check: validate code for test coverage and against programming style requirements
 
 ## Input Text File Format
 
@@ -131,3 +124,10 @@ We have customized the Gradle environment to  support advanced functionality for
 ```
  $ ./gradlew tasks
 ```
+
+Some tasks of note include:
+
+1. unitTest: execute all unit tests
+2. integrationTest: execute all integration tests
+3. jacocoTestReport: output code coverage in HTML format to `./build/jacocoHtml`
+4. check: validate code for test coverage and against programming style requirements
