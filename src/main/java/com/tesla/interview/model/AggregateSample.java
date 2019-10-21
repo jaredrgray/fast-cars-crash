@@ -5,6 +5,8 @@ package com.tesla.interview.model;
  */
 public class AggregateSample {
 
+  private static final String FIELD_SEPARATOR = ",";
+
   private final int aggregateValue;
   private final String id;
   private final int partitionNo;
@@ -43,8 +45,8 @@ public class AggregateSample {
 
   @Override
   public String toString() {
-    return "AggregateSample [aggregateValue=" + aggregateValue + ", id=" + id + ", partitionNo="
-        + partitionNo + ", timestamp=" + timestamp + "]";
+    return String.join(FIELD_SEPARATOR, String.valueOf(timestamp), String.valueOf(partitionNo), id,
+        String.valueOf(aggregateValue));
   }
 
 }

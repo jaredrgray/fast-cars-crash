@@ -191,7 +191,7 @@ public class TestCommandLineApplication {
 
     JCommander mockCmder = mock(JCommander.class);
     MockedCliApp underTest = new MockedCliApp(mockCmder, args);
-    underTest.execute();
+    executeWrapper(underTest);
     verify(mockCmder).usage();
   }
 
@@ -202,11 +202,9 @@ public class TestCommandLineApplication {
 
     Path validDir = Files.createTempDirectory(filePrefix);;
     Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
-    String[] args =
-        new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w", "1"};
-
     try {
-      main(args);
+      main(new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w",
+          "1"});
     } finally {
       validDir.toFile().delete();
       validFile.toFile().delete();

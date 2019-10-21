@@ -10,7 +10,6 @@ import org.apache.logging.log4j.Logger;
 public class MeasurementSample {
 
   private static final String FIELD_SEPARATOR = ",";
-
   private static final Logger LOG = getLogger(MeasurementSample.class);
 
   /**

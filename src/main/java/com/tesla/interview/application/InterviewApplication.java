@@ -9,6 +9,7 @@ import com.tesla.interview.application.AsynchronousWriter.WriteTask;
 import com.tesla.interview.io.MeasurementSampleReader;
 import com.tesla.interview.model.AggregateSample;
 import com.tesla.interview.model.MeasurementSample;
+import java.io.File;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
@@ -47,7 +48,7 @@ public class InterviewApplication implements Callable<Void> {
         measurement.getTimestamp());
   }
 
-  final Map<Integer, Integer> partitionNoToThreadNo; // note: partitions indexed from 0
+  final Map<Integer, Integer> partitionNumToThreadNo; // note: partitions indexed from 0
   final MeasurementSampleReader reader;
   final Map<Integer, AsynchronousWriter> threadNumToWriter;
 
@@ -85,20 +86,29 @@ public class InterviewApplication implements Callable<Void> {
     /* END: validate input */
 
     this.reader = new MeasurementSampleReader(Paths.get(inputFilePath).toFile());
-    this.partitionNoToThreadNo = Maps.newHashMap();
+    this.partitionNumToThreadNo = Maps.newHashMap();
     this.threadNumToWriter = Maps.newHashMap();
     int maxPartitionsPerThread =
         (int) ceil(outputFilePaths.size() / Double.valueOf(numWriteThreads));
 
     // construct the reader and list of write threads from validated input
     for (int threadNo = 0; threadNo < numWriteThreads; threadNo++) {
-      Map<Integer, String> partitionNoToPath = Maps.newHashMap();
+      Map<Integer, String> partitionNumToPath = Maps.newHashMap();
       for (int partitionNo = threadNo * maxPartitionsPerThread; partitionNo < outputFilePaths.size()
           && partitionNo < (threadNo + 1) * maxPartitionsPerThread; partitionNo++) {
-        partitionNoToPath.put(partitionNo + 1, outputFilePaths.get(partitionNo));
-        partitionNoToThreadNo.put(partitionNo, threadNo);
+        String ourPath = outputFilePaths.get(partitionNo);
+
+        // delete the existing files if there are conflicts
+        File ourFile = Paths.get(ourPath).toFile();
+        if (ourFile != null && ourFile.exists()) {
+          ourFile.delete();
+        }
+
+        // maintain maps
+        partitionNumToPath.put(partitionNo, ourPath);
+        partitionNumToThreadNo.put(partitionNo, threadNo);
       }
-      AsynchronousWriter writer = new AsynchronousWriter(numWriteThreads, partitionNoToPath);
+      AsynchronousWriter writer = new AsynchronousWriter(numWriteThreads, partitionNumToPath);
       threadNumToWriter.put(threadNo, writer);
     }
 
@@ -118,7 +128,7 @@ public class InterviewApplication implements Callable<Void> {
       MeasurementSampleReader reader,
       Map<Integer, AsynchronousWriter> threadNumToWriter) {
     
-    this.partitionNoToThreadNo = partitionNoToThreadNo;
+    this.partitionNumToThreadNo = partitionNoToThreadNo;
     this.reader = reader;
     this.threadNumToWriter = threadNumToWriter;
   }
@@ -189,7 +199,7 @@ public class InterviewApplication implements Callable<Void> {
       AggregateSample aggregate = aggregateMeasurement(reader.next());
       // convert from: index-from-one, to: index-from-zero
       int partitionNo = aggregate.getPartitionNo() - 1;
-      int threadNo = partitionNoToThreadNo.getOrDefault(partitionNo, -1 /* defaultValue */);
+      int threadNo = partitionNumToThreadNo.getOrDefault(partitionNo, -1 /* defaultValue */);
       AsynchronousWriter writer = threadNumToWriter.getOrDefault(threadNo, null /* defaultValue */);
       if (writer != null) {
         q.add(writer.writeSample(aggregate));

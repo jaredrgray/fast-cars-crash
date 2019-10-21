@@ -38,14 +38,23 @@ public class CommandLineInterviewApplication {
     try {
       cliApp.parseArgs();
       cliApp.validateArgs();
-      cliApp.execute();
+      if (!cliApp.parsedArguments.isHelpCommand) {
+        cliApp.execute();
+      } else {
+        // just printing help
+        cliApp.commander.usage();
+      }
     } catch (RuntimeException e) {
       if (e instanceof ParameterException || e instanceof IllegalArgumentException) {
+        // validation failed
+        consoleTrace(cliApp.commander.getConsole(), e);
         cliApp.commander.usage();
-        cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
+        cliApp.commander.getConsole()
+            .println(String.format("invalid parameter: %s", e.getMessage()));
       } else {
         // unexpected exception: dump stack trace
-        cliApp.commander.getConsole().println(String.format("ERROR: %s", e.getMessage()));
+        cliApp.commander.getConsole()
+            .println(String.format("unexpected error: %s", e.getMessage()));
         consoleTrace(cliApp.commander.getConsole(), e);
         throw e;
       }
@@ -114,14 +123,9 @@ public class CommandLineInterviewApplication {
    */
   void execute() {
     if (parsedArguments != null) {
-      if (!parsedArguments.isHelpCommand) {
-        InterviewApplication app = appFactory.get();
-        if (app != null) {
-          app.call();
-        }
-      } else {
-        // just displaying help
-        commander.usage();
+      InterviewApplication app = appFactory.get();
+      if (app != null) {
+        app.call();
       }
     } else {
       throw new IllegalStateException("Caller did not validate arguments");
@@ -129,13 +133,12 @@ public class CommandLineInterviewApplication {
   }
 
   /**
-   * Unlike the injection constructors, the main constructor does not perform validation. Use this
-   * to do so.
+   * Parse the input args.
    * 
    * @throws ParameterException when there is a problem with one or more arguments provided
    */
   void parseArgs() throws ParameterException {
-    if (this.parsedArguments == null) {
+    if (parsedArguments == null) {
       parsedArguments = new CommandLineArgs();
       commander.addObject(parsedArguments);
       commander.parse(rawArgs);

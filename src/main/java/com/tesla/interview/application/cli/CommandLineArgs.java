@@ -10,23 +10,24 @@ import com.tesla.interview.application.cli.validators.RequiredPositiveInteger;
 public class CommandLineArgs {
 
   @Parameter(names = {"--numPartitions", "-p"},
-      description = "Number of partitions in the input file",
+      description = "Number of partitions in the input file", required = true,
       validateValueWith = RequiredPositiveInteger.class)
-  int numPartitions = 1;
+  Integer numPartitions;
 
   @Parameter(names = {"--numWriteThreads", "-w"}, validateValueWith = RequiredPositiveInteger.class,
       description = "Number of threads to use for writing output files")
-  int numWriteThreads = 1;
+  Integer numWriteThreads = 1;
 
-  @Parameter(names = {"--inputFile", "-i"}, description = "File system path to the input file",
+  @Parameter(names = {"--inputFile", "-i"}, required = true,
+      description = "File system path to the input file",
       validateValueWith = ExistingReadableFile.class)
   String inputFile;
 
-  @Parameter(names = {"--outputDirectory", "-o"},
+  @Parameter(names = {"--outputDirectory", "-o"}, required = true,
       description = "Path to the directory in which output files shall be placed",
       validateValueWith = ExistingReadableDirectory.class)
   String outputDirectory;
 
   @Parameter(names = {"--help", "-h"}, description = "Display usage")
-  boolean isHelpCommand;
+  boolean isHelpCommand = false;
 }

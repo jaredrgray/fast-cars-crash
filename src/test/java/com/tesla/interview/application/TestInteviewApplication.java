@@ -123,7 +123,7 @@ public class TestInteviewApplication {
       InterviewApplication underTest = new InterviewApplication(1 /* numWriteThreads */,
           1 /* maxFileHandles */, Lists.newArrayList(tempOutputFile.toString()),
           tempInputFile.toString() /* inputFilePath */);
-      assertEquals(1, underTest.partitionNoToThreadNo.size());
+      assertEquals(1, underTest.partitionNumToThreadNo.size());
     } finally {
       tempInputFile.toFile().delete();
     }
@@ -151,7 +151,7 @@ public class TestInteviewApplication {
       InterviewApplication underTest =
           new InterviewApplication(numWriteThreads, numWriteThreads /* maxFileHandles */,
               outputFilesAsStrings, tempInputFile.toString() /* inputFilePath */);
-      assertEquals(tempOutputFiles.size(), underTest.partitionNoToThreadNo.size());
+      assertEquals(tempOutputFiles.size(), underTest.partitionNumToThreadNo.size());
       assertEquals(numWriteThreads, underTest.threadNumToWriter.size());
     } finally {
       tempInputFile.toFile().delete();
@@ -182,16 +182,16 @@ public class TestInteviewApplication {
       InterviewApplication underTest =
           new InterviewApplication(numWriteThreads, numWriteThreads /* maxFileHandles */,
               outputFilesAsStrings, tempInputFile.toString() /* inputFilePath */);
-      assertEquals(tempOutputFiles.size(), underTest.partitionNoToThreadNo.size());
+      assertEquals(tempOutputFiles.size(), underTest.partitionNumToThreadNo.size());
       assertEquals(numWriteThreads, underTest.threadNumToWriter.size());
 
       Map<Integer, List<Integer>> threadNumToPartitionNos = Maps.newHashMap();
-      HashSet<Integer> distinctValues = Sets.newHashSet(underTest.partitionNoToThreadNo.values());
+      HashSet<Integer> distinctValues = Sets.newHashSet(underTest.partitionNumToThreadNo.values());
       for (int threadNum : distinctValues) {
         assertTrue(threadNum < numWriteThreads);
         List<Integer> partitionNos = Lists.newArrayList();
-        for (int partitionNum : underTest.partitionNoToThreadNo.keySet()) {
-          if (underTest.partitionNoToThreadNo.get(partitionNum) == threadNum) {
+        for (int partitionNum : underTest.partitionNumToThreadNo.keySet()) {
+          if (underTest.partitionNumToThreadNo.get(partitionNum) == threadNum) {
             partitionNos.add(partitionNum);
           }
         }
