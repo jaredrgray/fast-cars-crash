@@ -45,7 +45,7 @@ public class AggregateSample {
 
   @Override
   public String toString() {
-    return String.join(FIELD_SEPARATOR, String.valueOf(timestamp), String.valueOf(partitionNo), id,
+    return String.join(FIELD_SEPARATOR, String.valueOf(timestamp), id,
         String.valueOf(aggregateValue));
   }
 

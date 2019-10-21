@@ -134,7 +134,3 @@ The end-of-line character sequence written to the output file will depend on the
 ## Ordering
 
 Data written to the output files shall appear in the order in which they were read from the input file.  Consider two data samples *A* and *B* with the same partition number.  The output file **must** contain a line corresponding to *A* prior to the line derived from *B*.
-
----
-
-
