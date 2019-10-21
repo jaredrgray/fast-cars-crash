@@ -79,16 +79,16 @@ Here, the timestamp is `1505233687037`, the partition number is 4, and the asset
 
 As can be seen in the example, the hashtags field may contain multiple comma-separated values.  Only the following values are considered valid:
 
-1. #one
-1. #two
-1. #three
-1. #four
-1. #five
-1. #six
-1. #seven
-1. #eight
-1. #nine
-1. #ten
+* #one
+* #two
+* #three
+* #four
+* #five
+* #six
+* #seven
+* #eight
+* #nine
+* #ten
 
 All other hashtags and non-hashtags at the end of an input line will be ignored.  These shall be logged to the console for auditing purposes.
 
