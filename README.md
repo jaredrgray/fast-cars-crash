@@ -35,9 +35,9 @@ Usage: <main class> [options]
       Path to the directory in which output files shall be placed
 ```
 
-The program's parameters correspond to a specification for input and output (to be detailed in future sections).  To help users struggling with syntax, the program displays context-specific error messages explaining why the user's input is invalid.
+The program's parameters correspond to a specification for input and output (to be detailed below).  To help users struggling with syntax, the program displays context-specific error messages explaining why the user's input is invalid.
 
-### Example Usage
+### Example
 
 Suppose we have a text file called `input.txt` containing only partitions 1-4 and an output directory named `outputDir`.  We can execute the command below within a shell to write four output files, one for each partition:
 
