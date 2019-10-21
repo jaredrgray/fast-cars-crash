@@ -12,13 +12,13 @@ To run Gradle and to build the application, a [Java Development Kit](https://jdk
 
 Execute the following command within a shell to display the program's built-in usage:
 
-```shell
+```
  $ ./gradlew run --args="--help"
 ```
 
 See below an example output:
 
-```shell
+```
 Usage: <main class> [options]
   Options:
     --help, -h
@@ -41,7 +41,7 @@ The program's parameters correspond to a specification for input and output (to 
 
 Suppose we have a text file called `input.txt` containing only partitions 1-4 and an output directory named `outputDir`.  We can execute the command below within a shell to write the four output files:
 
-```shell
+```
  $ ./gradlew run --args="-i $HOME/Desktop/input.txt -o $HOME/Desktop/outputDir -p 4"
 ```
 
@@ -49,7 +49,7 @@ Suppose we have a text file called `input.txt` containing only partitions 1-4 an
 
 We have customized the Gradle environment to  support advanced functionality for developers.  Execute the following command within a shell to see all tasks supported in this environment: 
 
-```shell
+```
  $ ./gradlew tasks
 ```
 
