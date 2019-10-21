@@ -111,7 +111,7 @@ public class TestAsynchronousWriter {
     executorService.submit(new Runnable() {
       @Override
       public void run() {
-        Duration spinDuration = maxWaitDuration.plus(Duration.ofMillis(10));
+        Duration spinDuration = maxWaitDuration.plus(Duration.ofMillis(300));
         Instant end = Instant.now().plus(spinDuration);
         try {
           while (Instant.now().isBefore(end)) {

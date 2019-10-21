@@ -47,10 +47,8 @@ public class CommandLineInterviewApplication {
     } catch (RuntimeException e) {
       if (e instanceof ParameterException || e instanceof IllegalArgumentException) {
         // validation failed
-        consoleTrace(cliApp.commander.getConsole(), e);
         cliApp.commander.usage();
-        cliApp.commander.getConsole()
-            .println(String.format("invalid parameter: %s", e.getMessage()));
+        cliApp.commander.getConsole().println(e.getMessage());
       } else {
         // unexpected exception: dump stack trace
         cliApp.commander.getConsole()
