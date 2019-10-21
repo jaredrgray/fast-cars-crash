@@ -45,14 +45,6 @@ Suppose we have a text file called `input.txt` containing only partitions 1-4 an
  $ ./gradlew run --args="-i $HOME/Desktop/input.txt -o $HOME/Desktop/outputDir -p 4"
 ```
 
-## Other Capabilities
-
-We have customized the Gradle environment to  support advanced functionality for developers.  Execute the following command within a shell to see all tasks supported in this environment: 
-
-```
- $ ./gradlew tasks
-```
-
 Some tasks of note include:
 
 1. unitTest: execute all unit tests
@@ -131,3 +123,11 @@ The end-of-line character sequence written to the output file will depend on the
 ### Ordering
 
 Data written to the output files shall appear in the order in which they were read from the input file.  Consider two data samples *A* and *B* with the same partition number.  The output file **must** contain a line corresponding to *A* prior to the line derived from *B*.
+
+## Development
+
+We have customized the Gradle environment to  support advanced functionality for developers.  Execute the following command within a shell to see all tasks supported in this environment: 
+
+```
+ $ ./gradlew tasks
+```
