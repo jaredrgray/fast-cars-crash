@@ -35,14 +35,14 @@ Usage: <main class> [options]
       Path to the directory in which output files shall be placed
 ```
 
-The program's parameters correspond to a specification for input and output provided below.  To help users struggling with syntax, we will display context-specific error messages explaining why the input is invalid.
+The program's parameters correspond to a specification for input and output provided below.  To help users struggling with syntax, the program displays context-specific error messages explaining why the user's input is invalid.
 
 ### Example Usage
 
 Suppose we have a text file called `input.txt` containing only partitions 1-4 and an output directory named `outputDir`.  We can execute the command below within a shell to write the four output files:
 
 ```
-./gradlew clean run --args="-i $HOME/Desktop/input.txt -o $HOME/Desktop/outputDir -p 4"
+./gradlew run --args="-i $HOME/Desktop/input.txt -o $HOME/Desktop/outputDir -p 4"
 ```
 
 ## Other Capabilities
