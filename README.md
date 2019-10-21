@@ -18,7 +18,7 @@ Execute the following command within a shell to display the program's built-in u
 
 See below an example output:
 
-```
+```shell
 Usage: <main class> [options]
   Options:
     --help, -h
@@ -35,22 +35,22 @@ Usage: <main class> [options]
       Path to the directory in which output files shall be placed
 ```
 
-The program's parameters correspond to a specification for input and output provided below.  To help users struggling with syntax, the program displays context-specific error messages explaining why the user's input is invalid.
+The program's parameters correspond to a specification for input and output (to be detailed in future sections).  To help users struggling with syntax, the program displays context-specific error messages explaining why the user's input is invalid.
 
 ### Example Usage
 
 Suppose we have a text file called `input.txt` containing only partitions 1-4 and an output directory named `outputDir`.  We can execute the command below within a shell to write the four output files:
 
-```
-./gradlew run --args="-i $HOME/Desktop/input.txt -o $HOME/Desktop/outputDir -p 4"
+```shell
+ $ ./gradlew run --args="-i $HOME/Desktop/input.txt -o $HOME/Desktop/outputDir -p 4"
 ```
 
 ## Other Capabilities
 
 We have customized the Gradle environment to  support advanced functionality for developers.  Execute the following command within a shell to see all tasks supported in this environment: 
 
-```
-$ ./gradlew tasks
+```shell
+ $ ./gradlew tasks
 ```
 
 Some tasks of note include:
@@ -58,8 +58,7 @@ Some tasks of note include:
 1. unitTest: execute all unit tests
 2. integrationTest: execute all integration tests
 3. jacocoTestReport: output code coverage in HTML format to `./build/jacocoHtml`
-4. check: check code for test coverage and programming style requirements
- 
+4. check: validate code for test coverage and against programming style requirements
 
 ## Input Text File Format
 
@@ -76,7 +75,6 @@ For example:
 
 Here, the timestamp is `1505233687037`, the partition number is 4, and the asset identifier is a UUID.
 
-
 ### Hash Tags
 
 As can be seen in the example, the hashtags field may contain multiple comma-separated values.  Only the following values are considered valid:
@@ -85,7 +83,7 @@ As can be seen in the example, the hashtags field may contain multiple comma-sep
 1. #two
 1. #three
 1. #four
-1. #five,
+1. #five
 1. #six
 1. #seven
 1. #eight
@@ -112,7 +110,6 @@ The longest applicable termination sequences will be consumed whenever multiple 
 
 ## Output Text File(s) Format 
 
-
 Our program produces its output in the form of one or more output text files.  There will be one output text file for each partition number.  The files shall be named output-file-*n*.csv, where *n* is a partition number.
 
 Each line in the output file is a comma-separated list consisting of the following elements:
@@ -121,7 +118,7 @@ Each line in the output file is a comma-separated list consisting of the followi
 1. Asset id
 1. Aggregate value
 
-We define the aggregate value as the sum of the integers corresponding to the hashtags from an input sample.  Consider the example input line above.  The aggregate value for this sample is 7 + 3 + 6 = 16.
+We define the aggregate value as the sum of the integers corresponding to the hashtags from an input sample.  Let us again consider the example line from input section.  The aggregate value for this sample is 7 + 3 + 6 = 16.
 
 See below the full line written to output-4.txt (so chosen because 4 is the partition number from the sample):
 
@@ -131,6 +128,6 @@ See below the full line written to output-4.txt (so chosen because 4 is the part
 
 The end-of-line character sequence written to the output file will depend on the platform on which this program runs.  On most UNIX-like operating systems, the termination character will be `\n`.
 
-## Ordering
+### Ordering
 
 Data written to the output files shall appear in the order in which they were read from the input file.  Consider two data samples *A* and *B* with the same partition number.  The output file **must** contain a line corresponding to *A* prior to the line derived from *B*.
