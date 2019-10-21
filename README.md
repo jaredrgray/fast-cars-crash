@@ -1,6 +1,6 @@
 # Fast Cars Crash
 
-This program aggregates Internet of Things (Io)T sampling data, represented as a single input text file.  We output the resulting aggregations to a series of output text files.
+This program aggregates Internet of Things (IoT) sampling data, represented as a single input text file.  We output the resulting aggregations to a series of output text files.
 
 ## System Requirements
 
