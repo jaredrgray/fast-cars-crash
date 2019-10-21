@@ -91,7 +91,7 @@ We interpret following characters sequences as end-of-line signifiers:
 1. Carriage return (`\r`)
 1. End-of-file
 
-The longest applicable termination sequences will be consumed whenever multiple termination sequences are present.
+When multiple candidate termination sequences are present at the end of a line, we consume them in the order above.
 
 ## Output Text File(s) Format 
 
