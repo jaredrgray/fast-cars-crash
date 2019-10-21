@@ -37,6 +37,14 @@ Usage: <main class> [options]
 
 The program's parameters correspond to a specification for input and output provided below.  To help users struggling with syntax, we will display context-specific error messages explaining why the input is invalid.
 
+### Example Usage
+
+Suppose we have a text file called `input.txt` containing only partitions 1-4 and an output directory named `outputDir`.  We can execute the command below within a shell to write the four output files:
+
+```
+./gradlew clean run --args="-i $HOME/Desktop/input.txt -o $HOME/Desktop/outputDir -p 4"
+```
+
 ## Other Capabilities
 
 We have customized the Gradle environment to  support advanced functionality for developers.  Execute the following command within a shell to see all tasks supported in this environment: 
