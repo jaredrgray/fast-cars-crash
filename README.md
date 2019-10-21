@@ -1,8 +1,8 @@
 # Fast Cars Crash
 
-This program aggregates IoT sampling data, represented as an input text file.  We output the resulting aggregating values to a series of output text files.  
+This program aggregates Internet of Things (Io)T sampling data, represented as a single input text file.  We output the resulting aggregations to a series of output text files.
 
-## Requirements
+## System Requirements
 
 This distribution contains a [Gradle Wrapper](https://docs.gradle.org/current/userguide/gradle_wrapper.html) that can be used to conveniently build and run the program.  You do not need to install Gradle, as the wrapper will download and run an appropriate Gradle version automatically.  Even supposing you do have Gradle installed, we recommend using the wrapper instead.
 
@@ -12,12 +12,11 @@ To run Gradle and to build the application, a [Java Development Kit](https://jdk
 
 Execute the following command within a shell to display the program's built-in usage:
 
-``
-$ ./gradlew run --args="--help"
+```shell
+ $ ./gradlew run --args="--help"
 ```
 
 See below an example output:
-
 
 ```
 Usage: <main class> [options]
