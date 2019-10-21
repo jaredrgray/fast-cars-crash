@@ -8,7 +8,7 @@ public class AggregateSample {
   private static final String FIELD_SEPARATOR = ",";
 
   private final int aggregateValue;
-  private final String id;
+  private final String assetId;
   private final int partitionNo;
   private final long timestamp;
 
@@ -16,13 +16,13 @@ public class AggregateSample {
    * Constructor.
    * 
    * @param aggregateValue aggregation value of constituent samples
-   * @param id unique identifier for the asset
+   * @param assetId unique identifier for the asset
    * @param partitionNo TODO (need better description from specification)
    * @param timestamp number of milliseconds since January 1, 1970:UTC
    */
-  public AggregateSample(int aggregateValue, String id, int partitionNo, long timestamp) {
+  public AggregateSample(int aggregateValue, String assetId, int partitionNo, long timestamp) {
     this.aggregateValue = aggregateValue;
-    this.id = id;
+    this.assetId = assetId;
     this.partitionNo = partitionNo;
     this.timestamp = timestamp;
   }
@@ -31,8 +31,8 @@ public class AggregateSample {
     return aggregateValue;
   }
 
-  public String getId() {
-    return id;
+  public String getAssetId() {
+    return assetId;
   }
 
   public int getPartitionNo() {
@@ -45,7 +45,7 @@ public class AggregateSample {
 
   @Override
   public String toString() {
-    return String.join(FIELD_SEPARATOR, String.valueOf(timestamp), id,
+    return String.join(FIELD_SEPARATOR, String.valueOf(timestamp), assetId,
         String.valueOf(aggregateValue));
   }
 

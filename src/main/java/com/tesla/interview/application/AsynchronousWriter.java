@@ -29,9 +29,15 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * Asynchronously writes input {@link AggregateSample}s to an output file via
+ * {@link AggregateSampleWriter#writeSample(AggregateSample)}.
+ */
 public class AsynchronousWriter implements Closeable {
 
-
+  /**
+   * Schedules writes asynchronously.
+   */
   class WriteScheduler extends Thread {
 
     @Override
@@ -73,6 +79,9 @@ public class AsynchronousWriter implements Closeable {
       }
     }
 
+    /**
+     * Use a condition variable to schedule tasks efficiently.
+     */
     private void scheduleTasks() {
       bufferLock.lock();
       try {

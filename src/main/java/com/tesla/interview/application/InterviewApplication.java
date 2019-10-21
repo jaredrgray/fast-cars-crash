@@ -28,7 +28,7 @@ import org.apache.logging.log4j.Logger;
 public class InterviewApplication implements Callable<Void> {
 
   private static final Logger LOG = getLogger(InterviewApplication.class);
-  private static final Duration PRINT_INTERVAL = Duration.ofSeconds(3);
+  private static final Duration PRINT_INTERVAL = Duration.ofSeconds(3); // TODO make configurable
 
   /**
    * Construct an aggregate from a sample.
@@ -44,7 +44,7 @@ public class InterviewApplication implements Callable<Void> {
     }
 
     int sum = measurement.getHashtags().stream().mapToInt((ht) -> ht.getValue()).sum();
-    return new AggregateSample(sum, measurement.getId(), measurement.getPartitionNo(),
+    return new AggregateSample(sum, measurement.getAssetId(), measurement.getPartitionNo(),
         measurement.getTimestamp());
   }
 
@@ -53,7 +53,7 @@ public class InterviewApplication implements Callable<Void> {
   final Map<Integer, AsynchronousWriter> threadNumToWriter;
 
   /**
-   * Constructor.
+   * Canonical constructor.
    * 
    * @param numWriteThreads max. number of {@link Thread}s to dedicate towards writing output files
    * @param maxFileHandles max. number of file handles we should have open concurrently
@@ -99,6 +99,7 @@ public class InterviewApplication implements Callable<Void> {
         String ourPath = outputFilePaths.get(partitionNo);
 
         // delete the existing files if there are conflicts
+        // TODO make this behavior configurable via parameter flag
         File ourFile = Paths.get(ourPath).toFile();
         if (ourFile != null && ourFile.exists()) {
           ourFile.delete();
@@ -122,23 +123,19 @@ public class InterviewApplication implements Callable<Void> {
    * @param reader injected sample reader
    * @param threadNumToWriter injected mapping of threads to writers
    */
-  // @formatter:off
-  InterviewApplication(
-      Map<Integer, Integer> partitionNoToThreadNo,
-      MeasurementSampleReader reader,
+  InterviewApplication(//
+      Map<Integer, Integer> partitionNoToThreadNo, //
+      MeasurementSampleReader reader, //
       Map<Integer, AsynchronousWriter> threadNumToWriter) {
-    
+
     this.partitionNumToThreadNo = partitionNoToThreadNo;
     this.reader = reader;
     this.threadNumToWriter = threadNumToWriter;
   }
-  // @formatter:on
 
   @Override
   public Void call() {
-
     LOG.info("starting application");
-
     LOG.info("spawning write tasks");
     Queue<Future<WriteTask>> q = spawnWrites();
     LOG.info(String.format("all write tasks spawned -- numSpawned: %d", q.size()));
@@ -146,7 +143,6 @@ public class InterviewApplication implements Callable<Void> {
     LOG.info("waiting for in-flight writes to complete");
     awaitWrites(q);
     LOG.info("all write tasks have completed");
-
     LOG.info("stopping application");
 
     // tidy the room
@@ -160,9 +156,13 @@ public class InterviewApplication implements Callable<Void> {
     return null;
   }
 
+  /**
+   * Wait for all writes to complete.
+   * <p/>
+   * TODO do this in a separate thread to reduce memory usage
+   */
   private void awaitWrites(Queue<Future<WriteTask>> q) {
     Instant lastPrintTime;
-    // wait for all writes to finish
     lastPrintTime = Instant.MIN;
     while (!q.isEmpty()) {
       Future<WriteTask> next = q.remove();
@@ -190,6 +190,11 @@ public class InterviewApplication implements Callable<Void> {
     }
   }
 
+  /**
+   * Spawn a series of {@link WriteTask}s.
+   * 
+   * @return a {@link Queue} containing all spawned tasks.
+   */
   private Queue<Future<WriteTask>> spawnWrites() {
     Instant lastPrintTime = Instant.MIN;
     int spawnCount = 0;

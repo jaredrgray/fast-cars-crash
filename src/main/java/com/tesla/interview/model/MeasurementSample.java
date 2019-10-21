@@ -7,6 +7,9 @@ import com.tesla.interview.application.Generated;
 import java.util.Set;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * A data point collected from an Internet of Things (IoT) device.
+ */
 public class MeasurementSample {
 
   private static final String FIELD_SEPARATOR = ",";
@@ -25,14 +28,13 @@ public class MeasurementSample {
 
     String[] fields = sampleString.split(FIELD_SEPARATOR);
     if (fields.length < 3) {
-      throw new IllegalArgumentException("Incomplete sample provided");
+      throw new IllegalArgumentException("Insufficient number of fields for sample");
     }
 
-    // variables to parse from string
+    // parse first three fields within string
     final long timestamp;
     final int partitionNo;
     final String id;
-    final Set<IntegerHashtag> hashtags = Sets.newHashSet();
 
     try {
       timestamp = Long.parseLong(fields[0]);
@@ -48,13 +50,15 @@ public class MeasurementSample {
 
     id = fields[2];
     if (id.isEmpty()) {
-      throw new IllegalArgumentException("Third field (id) cannot be empty");
+      throw new IllegalArgumentException("Third field (asset identifier) cannot be empty");
     }
 
     if (fields.length < 4) {
       throw new IllegalArgumentException("Fourth field (hashtags) cannot be empty");
     }
 
+    // construct the remaining field, a comma-delimited set of hashtags
+    final Set<IntegerHashtag> hashtags = Sets.newHashSet();
     for (int i = 3; i < fields.length; i++) {
       try {
         IntegerHashtag hashtag = IntegerHashtag.fromTag(fields[i]);
@@ -70,7 +74,7 @@ public class MeasurementSample {
   }
 
   private final Set<IntegerHashtag> hashtags;
-  private final String id;
+  private final String assetId;
   private final int partitionNo;
   private final long timestamp;
 
@@ -79,14 +83,14 @@ public class MeasurementSample {
    * 
    * @param timestamp number of milliseconds since January 1, 1970:UTC
    * @param partitionNo TODO (I can't define this well based on specification provided)
-   * @param id unique identifier
+   * @param assetId unique identifier for asset
    * @param hashtags tags associated with this sample
    */
-  public MeasurementSample(long timestamp, int partitionNo, String id,
+  public MeasurementSample(long timestamp, int partitionNo, String assetId,
       Set<IntegerHashtag> hashtags) {
     this.timestamp = timestamp;
     this.partitionNo = partitionNo;
-    this.id = id;
+    this.assetId = assetId;
     this.hashtags = hashtags;
   }
 
@@ -106,10 +110,10 @@ public class MeasurementSample {
         return false;
     } else if (!hashtags.equals(other.hashtags))
       return false;
-    if (id == null) {
-      if (other.id != null)
+    if (assetId == null) {
+      if (other.assetId != null)
         return false;
-    } else if (!id.equals(other.id))
+    } else if (!assetId.equals(other.assetId))
       return false;
     if (partitionNo != other.partitionNo)
       return false;
@@ -122,8 +126,8 @@ public class MeasurementSample {
     return hashtags;
   }
 
-  public String getId() {
-    return id;
+  public String getAssetId() {
+    return assetId;
   }
 
   public int getPartitionNo() {
@@ -136,8 +140,8 @@ public class MeasurementSample {
 
   @Override
   public String toString() {
-    String prefix =
-        String.join(FIELD_SEPARATOR, String.valueOf(timestamp), String.valueOf(partitionNo), id);
+    String prefix = String.join(FIELD_SEPARATOR, String.valueOf(timestamp),
+        String.valueOf(partitionNo), assetId);
     StringBuilder suffix = new StringBuilder();
     for (IntegerHashtag hashtag : hashtags) {
       if (suffix.length() > 0) {

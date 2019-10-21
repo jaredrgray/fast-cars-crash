@@ -3,6 +3,9 @@ package com.tesla.interview.model;
 import com.google.common.collect.Maps;
 import java.util.Map;
 
+/**
+ * A hashtag and its associated integer value, e.g. "#six" -> six.
+ */
 public enum IntegerHashtag {
 
   /* empty comments present below to please the code formatter */
@@ -27,10 +30,10 @@ public enum IntegerHashtag {
   }
 
   /**
-   * Grant an enum from a tag.
+   * Construct an enum from a tag.
    * 
    * @param tag tag whose associated enum to return
-   * @return the associated enum
+   * @return non-null enum associated with tag
    */
   public static IntegerHashtag fromTag(String tag) {
     if (tagToEnum.containsKey(tag)) {

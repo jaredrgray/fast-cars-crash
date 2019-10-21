@@ -12,14 +12,17 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * Reads a series of {@link MeasurementSample} lines from an input text file.
+ */
 public class MeasurementSampleReader implements Closeable, Iterator<MeasurementSample> {
 
-  private static final Logger LOG = getLogger(AggregateSampleWriter.class);
+  private static final Logger LOG = getLogger(MeasurementSampleReader.class);
 
   /**
    * Allow unit tests to mock the buffered reader.
    * 
-   * @param reader mocked reader
+   * @param reader mocked reader to inject
    * @return instance with mocked reader injected
    */
   static MeasurementSampleReader withMockedReader(BufferedReader reader) {
@@ -64,9 +67,8 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
     try {
       reader.close();
     } catch (IOException e) {
-      String logMessage = String
-          .format("Unexpected error while closing file -- filePath: %s, lineNo: %d", path, lineNo);
-      LOG.error(logMessage);
+      LOG.error(String.format("Unexpected error while closing file -- filePath: %s, lineNo: %d",
+          path, lineNo));
     }
   }
 
@@ -91,9 +93,8 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
       this.lineNo++;
       return MeasurementSample.fromString(nextLine);
     } catch (IOException e) {
-      String exceptionMessage = String
-          .format("Unexpected error while reading file -- filePath: %s, lineNo: %d", path, lineNo);
-      throw new IllegalStateException(exceptionMessage, e);
+      throw new IllegalStateException(String.format(
+          "Unexpected error while reading file -- filePath: %s, lineNo: %d", path, lineNo), e);
     }
 
   }

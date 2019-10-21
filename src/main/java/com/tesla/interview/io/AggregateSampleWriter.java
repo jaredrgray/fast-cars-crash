@@ -12,12 +12,17 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * Writes a series of output text files, where each line of output is a String representation of an
+ * {@link AggregateSample}.
+ */
 public class AggregateSampleWriter implements Closeable {
 
   private static final Logger LOG = getLogger(AggregateSampleWriter.class);
 
   /**
-   * Create an aggregate writer from a file.
+   * Create an aggregate writer from a file. Classes in outside packages should use this in lieu of
+   * a constructor.
    * 
    * @param fileToWrite file to which we will write new samples
    */
@@ -40,7 +45,7 @@ public class AggregateSampleWriter implements Closeable {
   }
 
   /**
-   * Create a custom writer for unit testing.
+   * Injection for unit testing.
    * 
    * @param mock mock or stub of writer
    * @return custom instance with mock and/or stub injected
@@ -53,13 +58,6 @@ public class AggregateSampleWriter implements Closeable {
   private String path;
   private BufferedWriter writer;
 
-  /**
-   * Default constructor (for Mockito mocks only).
-   */
-  private AggregateSampleWriter() {
-    this(null /* writer */, 0 /* lineNo */, null /* path */);
-  }
-
   private AggregateSampleWriter(BufferedWriter writer, int lineNo, String path) {
     this.writer = writer;
     this.lineNo = lineNo;
@@ -71,14 +69,13 @@ public class AggregateSampleWriter implements Closeable {
     try {
       writer.close();
     } catch (IOException e) {
-      String logMessage = String
-          .format("Unexpected error while closing file -- filePath: %s, lineNo: %d", path, lineNo);
-      LOG.error(logMessage);
+      LOG.error(String
+          .format("Unexpected error while closing file -- filePath: %s, lineNo: %d", path, lineNo));
     }
   }
 
   /**
-   * Write a new sample.
+   * Write a new sample to the associated output file.
    * 
    * @param sample the sample to write.
    */
@@ -88,9 +85,8 @@ public class AggregateSampleWriter implements Closeable {
       writer.newLine();
       lineNo++;
     } catch (IOException e) {
-      String exceptionMessage = String.format(
-          "Unexpected error while writing to file -- filePath: %s, lineNo: %d", path, lineNo);
-      throw new IllegalStateException(exceptionMessage, e);
+      throw new IllegalStateException(String.format(
+          "Unexpected error while writing to file -- filePath: %s, lineNo: %d", path, lineNo), e);
     }
   }
 }

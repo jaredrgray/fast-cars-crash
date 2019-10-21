@@ -52,7 +52,7 @@ public class TestMeasurementSample {
     ), MISSING_FIELDS(
         "1505233687037,2",
         IllegalArgumentException.class, 
-        "Incomplete sample"
+        "Insufficient number of fields"
     ),
     ;
     // @formatter:on
@@ -145,7 +145,7 @@ public class TestMeasurementSample {
   @EnumSource(FromStringPositiveTestCase.class)
   void testFromStringPositive(FromStringPositiveTestCase testCase) {
     MeasurementSample underTest = MeasurementSample.fromString(testCase.testString);
-    assertEquals(testCase.expectedId, underTest.getId());
+    assertEquals(testCase.expectedId, underTest.getAssetId());
     assertEquals(testCase.expectedPartition, underTest.getPartitionNo());
     assertEquals(testCase.expectedTimestamp, underTest.getTimestamp());
     assertEquals(testCase.expectedTags.size(), underTest.getHashtags().size());

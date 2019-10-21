@@ -17,7 +17,7 @@ public class TestAggregateSample {
     AggregateSample underTest = new AggregateSample(aggregateValue, id, partitionNo, timestamp);
 
     assertEquals(aggregateValue, underTest.getAggregateValue());
-    assertEquals(id, underTest.getId());
+    assertEquals(id, underTest.getAssetId());
     assertEquals(partitionNo, underTest.getPartitionNo());
     assertEquals(timestamp, underTest.getTimestamp());
   }

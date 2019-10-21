@@ -50,7 +50,7 @@ public class TestInteviewApplication {
     assertNotNull(agg);
     assertEquals(timestamp, agg.getTimestamp());
     assertEquals(partitionNo, agg.getPartitionNo());
-    assertEquals(id, agg.getId());
+    assertEquals(id, agg.getAssetId());
     assertEquals(14, agg.getAggregateValue());
   }
 

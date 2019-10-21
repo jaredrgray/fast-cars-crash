@@ -5,6 +5,9 @@ import java.util.function.Consumer;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * A collection of static functions that are useful to the application.
+ */
 public class ApplicationTools {
 
   /**
@@ -38,8 +41,8 @@ public class ApplicationTools {
    */
   private static void printTrace(Consumer<String> printFun, Throwable th) {
 
-    // base case: got outermost exception
     if (th.getCause() == null) {
+      // base case: got outermost exception
       printFun.accept("Stack trace:");
       StackTraceElement[] elements = th.getStackTrace();
       int numDigits = String.valueOf(elements.length).length();
