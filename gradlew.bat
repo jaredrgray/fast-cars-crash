@@ -1,3 +1,16 @@
+@rem ***************************************************************************
+@rem Copyright (c) 2019 Jared R Gray
+@rem  
+@rem  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+@rem  in compliance with the License. You may obtain a copy of the License at
+@rem  
+@rem  https://www.apache.org/licenses/LICENSE-2.0
+@rem  
+@rem  Unless required by applicable law or agreed to in writing, software distributed under the License
+@rem  is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+@rem  or implied. See the License for the specific language governing permissions and limitations under
+@rem  the License.
+@rem ***************************************************************************
 @rem
 @rem Copyright 2015 the original author or authors.
 @rem

@@ -11,26 +11,23 @@
  *  or implied. See the License for the specific language governing permissions and limitations under
  *  the License.
  *******************************************************************************/
-package com.tesla.interview.application.cli.validators;
+package com.tesla.interview.tests;
 
-import com.beust.jcommander.IValueValidator;
-import com.beust.jcommander.ParameterException;
+import static com.tesla.interview.tests.IntegrationTestSuite.INTEGRATION_TEST_TAG;
+import org.junit.platform.runner.JUnitPlatform;
+import org.junit.platform.suite.api.ExcludeTags;
+import org.junit.platform.suite.api.IncludeClassNamePatterns;
+import org.junit.platform.suite.api.SelectPackages;
+import org.junit.runner.RunWith;
 
 /**
- * Ensures the input integer is present as a non-negative and non-zero value.
+ * The unit test suite consists of all unit tests. By convention, unit tests class names begin with
+ * "Test".
  */
-public class RequiredPositiveInteger implements IValueValidator<Integer> {
-
-  @Override
-  public void validate(String name, Integer value) throws ParameterException {
-    if (value == null) {
-      throw new ParameterException(String.format("%s cannot be null", name));
-    }
-
-    if (value.intValue() <= 0) {
-      throw new ParameterException(
-          String.format("%s must be a positive integer (was %d)", name, value.intValue()));
-    }
-  }
+@RunWith(JUnitPlatform.class)
+@SelectPackages("com.tesla.interview.application")
+@IncludeClassNamePatterns({"^.+[.]Test.*$"})
+@ExcludeTags(INTEGRATION_TEST_TAG)
+public class UnitTestSuite {
 
 }
