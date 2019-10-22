@@ -30,7 +30,7 @@ public class TestExistingReadableFile {
 
   @Test
   public void testExistingFileSucceeds() throws IOException {
-    String methodName = "testExistingValueSucceeds";
+    String methodName = "testExistingFileSucceeds";
     String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
     Path created = Files.createTempFile(filePrefix, null /* suffix */);
     ExistingReadableFile underTest = new ExistingReadableFile();

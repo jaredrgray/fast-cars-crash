@@ -113,15 +113,15 @@ public class TestMeasurementSample {
     private String testString;
     private long expectedTimestamp;
     private int expectedPartition;
-    private String expectedId;
+    private String expectedAssetId;
     private Set<IntegerHashtag> expectedTags;
 
-    FromStringPositiveTestCase(String testString, long timestamp, int partitionNo, String id,
+    FromStringPositiveTestCase(String testString, long timestamp, int partitionNo, String assetId,
         Set<IntegerHashtag> tags) {
       this.testString = testString;
       this.expectedTimestamp = timestamp;
       this.expectedPartition = partitionNo;
-      this.expectedId = id;
+      this.expectedAssetId = assetId;
       this.expectedTags = tags;
     }
   }
@@ -145,7 +145,7 @@ public class TestMeasurementSample {
   @EnumSource(FromStringPositiveTestCase.class)
   void testFromStringPositive(FromStringPositiveTestCase testCase) {
     MeasurementSample underTest = MeasurementSample.fromString(testCase.testString);
-    assertEquals(testCase.expectedId, underTest.getAssetId());
+    assertEquals(testCase.expectedAssetId, underTest.getAssetId());
     assertEquals(testCase.expectedPartition, underTest.getPartitionNo());
     assertEquals(testCase.expectedTimestamp, underTest.getTimestamp());
     assertEquals(testCase.expectedTags.size(), underTest.getHashtags().size());

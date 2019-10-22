@@ -9,8 +9,8 @@ import org.junit.platform.suite.api.SelectPackages;
 import org.junit.runner.RunWith;
 
 /**
- * The unit test suite consists of all unit tests. By convention, these tests classes names' begin
- * with "Test".
+ * The unit test suite consists of all unit tests. By convention, unit tests class names begin with
+ * "Test".
  */
 @RunWith(JUnitPlatform.class)
 @SelectPackages("com.tesla.interview.application")

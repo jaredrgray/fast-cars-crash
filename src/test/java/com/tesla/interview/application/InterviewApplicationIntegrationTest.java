@@ -29,6 +29,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
   @Test
   @Tag(INTEGRATION_TEST_TAG)
   void testCallHappyIntegration() throws IOException {
+    // set test parameters
     List<Path> filesCreated = Lists.newArrayList();
     int numPartitions = 7;
     int numThreads = 3;
@@ -74,10 +75,18 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
     }
   }
 
+  /**
+   * Build maps to inject for {@link InterviewApplication} construction.
+   * 
+   * @param numPartitions total number of partitions
+   * @param numThreads number of threads
+   * @param partitionNumToThreadNum map of partition number to thread number
+   * @param threadNumToPartitions map of thread number to list of partitions
+   */
   private void buildMaps(//
       int numPartitions, //
       int numThreads, //
-      Map<Integer, Integer> partitionNumToThreadNo, //
+      Map<Integer, Integer> partitionNumToThreadNum, //
       Map<Integer, List<Integer>> threadNumToPartitions) {
 
     int partitionNum = 0;
@@ -87,11 +96,22 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
       partitions.add(partitionNum);
       threadNumToPartitions.put(threadNo, partitions);
 
-      partitionNumToThreadNo.put(partitionNum, threadNo);
+      partitionNumToThreadNum.put(partitionNum, threadNo);
       partitionNum++;
     }
   }
 
+  /**
+   * Create a new {@link AsynchronousWriter} to inject for {@link InterviewApplication}
+   * construction.
+   * 
+   * @param filesCreated list of files to be cleaned up post-test
+   * @param threadNumToPartitions map of thread number to list of partitions
+   * @param methodName name of calling method (for logging)
+   * @param threadNum current thread number
+   * @return created writer
+   * @throws IOException if temporary file cannot be created
+   */
   private AsynchronousWriter createWriter(//
       List<Path> filesCreated, //
       Map<Integer, List<Integer>> threadNumToPartitions, //
@@ -110,6 +130,12 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
     return new AsynchronousWriter(partitionsForThread.size(), partitionNumToPath);
   }
 
+  /**
+   * Build a collection of randomized hash tags. Since the source of randomness is seeded, the
+   * resulting collection should be constant across different executions of this test.
+   * 
+   * @return the randomized tags
+   */
   private Set<IntegerHashtag> randoHashtags() {
     Set<IntegerHashtag> tags = Sets.newHashSet();
     IntegerHashtag[] values = IntegerHashtag.values();
@@ -121,14 +147,32 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
     return tags;
   }
 
-  private void stubHasNext(int numSamples, MeasurementSampleReader spyReader) {
-    OngoingStubbing<Boolean> w = when(spyReader.hasNext());
+  /**
+   * Ensure the mocked call to {@link MeasurementSampleReader#hasNext()} returns <code>true</code>
+   * once for each sample. After that, it should return <code>false</code>.
+   * 
+   * @param numSamples number of samples to stub
+   * @param mockReader mock to modify by reference
+   */
+  private void stubHasNext(int numSamples, MeasurementSampleReader mockReader) {
+    OngoingStubbing<Boolean> w = when(mockReader.hasNext());
     for (int i = 0; i < numSamples; i++) {
       w = w.thenReturn(true);
     }
     w = w.thenReturn(false);
   }
 
+  /**
+   * Build a randomized list of {@link MeasurementSample}s.
+   * <p/>
+   * Ensure the mocked call to {@link MeasurementSampleReader#next()} returns the samples in the
+   * correct order.
+   * 
+   * @param numSamples number of samples to stub
+   * @param numPartitions total number of partitions
+   * @param mockReader mock to modify by reference
+   * @return the created samples
+   */
   private List<MeasurementSample> stubNext(//
       int numSamples, //
       int numPartitions, //

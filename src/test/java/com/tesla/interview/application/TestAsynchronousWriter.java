@@ -1,5 +1,8 @@
 package com.tesla.interview.application;
 
+import static com.tesla.interview.application.ApplicationTools.logTrace;
+import static org.apache.logging.log4j.LogManager.getLogger;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -22,14 +25,20 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Stack;
 import java.util.UUID;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,9 +47,10 @@ public class TestAsynchronousWriter {
 
   private static final String CANNOT_BE_EMPTY = "cannot be empty";
   private static final String MUST_BE_POSITIVE = "must be positive";
+  private static final Logger LOG = getLogger(TestAsynchronousWriter.class);
 
-  private List<Path> filesToWrite;
-  private Map<Integer, String> partitionToPath;
+  private Stack<Path> filesToWrite;
+  private Map<Integer, String> partitionNumToPath;
   private AsynchronousWriter underTest;
   private Map<String, AggregateSampleWriter> pathToWriter;
   private List<AggregateSampleWriter> allWriters;
@@ -52,11 +62,8 @@ public class TestAsynchronousWriter {
   private void createWriters() {
     allWriters = Lists.newArrayList();
     for (Path p : filesToWrite) {
-      Instant s = Instant.now();
-      
       /* performance note: creating the first mock takes about one full second */
       AggregateSampleWriter writerMock = mock(AggregateSampleWriter.class);
-      System.out.println(Duration.between(s, Instant.now()).toString());
       allWriters.add(writerMock);
       pathToWriter.put(p.toString(), writerMock);
     }
@@ -68,8 +75,8 @@ public class TestAsynchronousWriter {
       underTest.close();
     }
 
-    for (int i = 0; i < filesToWrite.size(); i++) {
-      File createdFile = filesToWrite.get(i).toFile();
+    while (!filesToWrite.empty()) {
+      File createdFile = filesToWrite.pop().toFile();
       if (createdFile.exists()) {
         createdFile.delete();
       }
@@ -78,18 +85,19 @@ public class TestAsynchronousWriter {
 
   @BeforeEach
   void beforeEach() throws IOException {
-    filesToWrite = Lists.newArrayList();
+    filesToWrite = new Stack<>();
     for (int i = 0; i < 10; i++) {
       File createdFile = File.createTempFile(getClass().getName(), null /* suffix */);
       createdFile.delete();
       filesToWrite.add(Paths.get(createdFile.getPath()));
     }
 
-    partitionToPath = Maps.newHashMap();
+    partitionNumToPath = Maps.newHashMap();
     int fileNo = 0;
-    while (fileNo < filesToWrite.size()) {
-      String nextPath = filesToWrite.get(fileNo).toString();
-      partitionToPath.put(fileNo, nextPath);
+    Iterator<Path> fileToWrite = filesToWrite.iterator();
+    while (fileToWrite.hasNext()) {
+      String nextPath = fileToWrite.next().toString();
+      partitionNumToPath.put(fileNo, nextPath);
       fileNo++;
     }
 
@@ -104,10 +112,10 @@ public class TestAsynchronousWriter {
   void testCloseFailPath() {
 
     ExecutorService executorService = Executors.newSingleThreadExecutor();
-    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriter,
+    underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
         allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
 
-    // submit a task that will not complete before close timeout
+    // submit a task that will not complete before close() timeout
     executorService.submit(new Runnable() {
       @Override
       public void run() {
@@ -128,39 +136,61 @@ public class TestAsynchronousWriter {
   }
 
   @Test
-  void testCloseFastPath() {
-    underTest = new AsynchronousWriter(1 /* threadPoolSize */, partitionToPath);
+  void testCloseSuccessPath() {
+    createWriters();
+    underTest = new AsynchronousWriter(Executors.newSingleThreadExecutor(), partitionNumToPath,
+        pathToWriter, allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
     underTest.close();
+
+    assertTrue(underTest.isClosed.get());
+    assertFalse(underTest.scheduler.isAlive());
+    assertTrue(underTest.executor.isShutdown());
+    assertTrue(underTest.executor.isTerminated());
+    for (AggregateSampleWriter asw : underTest.pathToWriter.values()) {
+      verify(asw).close();
+    }
   }
 
   @Test
-  void testCloseSlowPath() {
+  void testCloseExecutorFailPath() throws InterruptedException, BrokenBarrierException {
     ExecutorService executorService = Executors.newSingleThreadExecutor();
+    CyclicBarrier barrier = new CyclicBarrier(2);
     executorService.submit(new Runnable() {
       @Override
       public void run() {
         try {
-          Thread.sleep(1000);
+          barrier.await();
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
+        } catch (BrokenBarrierException e) {
+          logTrace(LOG, Level.ERROR, e);
+          throw new IllegalStateException("Unexpected exception");
         }
       }
     });
 
-    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriter,
+    underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
         allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
     underTest.close();
+
+    assertTrue(underTest.isClosed.get());
+    assertFalse(underTest.scheduler.isAlive());
+    assertTrue(underTest.executor.isShutdown());
+    assertFalse(underTest.executor.isTerminated());
+    barrier.await();
   }
 
   @Test
   void testConstructorPositive() {
-    underTest = new AsynchronousWriter(1 /* threadPoolSize */, partitionToPath);
+    underTest = new AsynchronousWriter(1 /* threadPoolSize */, partitionNumToPath);
+    assertEquals(1, underTest.bufferSize);
+    assertTrue(underTest.scheduler.isAlive());
   }
 
   @Test
   void testConstructorWithDuplicatePathsFails() {
     Map<Integer, String> customMap = Maps.newHashMap();
-    customMap.putAll(partitionToPath);
+    customMap.putAll(partitionNumToPath);
 
     String dupPath = customMap.get(1);
     customMap.put(2, dupPath);
@@ -186,7 +216,7 @@ public class TestAsynchronousWriter {
   @Test
   void testConstructorWithEmptyPoolFails() {
     try {
-      underTest = new AsynchronousWriter(0 /* threadPoolSize */, partitionToPath);
+      underTest = new AsynchronousWriter(0 /* threadPoolSize */, partitionNumToPath);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains(MUST_BE_POSITIVE));
@@ -196,9 +226,10 @@ public class TestAsynchronousWriter {
   @Test
   void testConstructorWithMissingFileFails() throws IOException {
     Map<Integer, String> customMap = Maps.newHashMap();
-    customMap.putAll(partitionToPath);
+    customMap.putAll(partitionNumToPath);
 
     Path tempDir = Files.createTempDirectory(null /* prefix */);
+    filesToWrite.push(tempDir);
     tempDir.toFile().delete();
     String pathWithNoFile = tempDir.resolve("iDoNotExist").toString();
     customMap.put(1, pathWithNoFile);
@@ -214,7 +245,7 @@ public class TestAsynchronousWriter {
   @Test
   void testConstructorWithNegativePoolSizeFails() {
     try {
-      underTest = new AsynchronousWriter(-1 /* threadPoolSize */, partitionToPath);
+      underTest = new AsynchronousWriter(-1 /* threadPoolSize */, partitionNumToPath);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains(MUST_BE_POSITIVE));
@@ -235,16 +266,18 @@ public class TestAsynchronousWriter {
   void testWriteSamplePositiveOnePartition() throws InterruptedException, ExecutionException {
     createWriters();
     ExecutorService executorService = Executors.newSingleThreadExecutor();
-    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriter,
+    underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
         allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
 
+    // build the tasks and fire them off
     int partitionNo = 2;
     AggregateSample sample = new AggregateSample(0 /* aggregateValue */, "1" /* id */,
         partitionNo + 1, 3 /* timestamp */);
     Future<WriteTask> f = underTest.writeSample(sample);
     f.get();
 
-    String writtenPath = partitionToPath.get(partitionNo);
+    // verify that correct ASW processed the request
+    String writtenPath = partitionNumToPath.get(partitionNo);
     AggregateSampleWriter spyWriter = pathToWriter.get(writtenPath);
     for (AggregateSampleWriter spy : allWriters) {
       if (spy.equals(spyWriter)) {
@@ -259,28 +292,32 @@ public class TestAsynchronousWriter {
   void testWriteSamplePositiveThreePartitions() throws InterruptedException, ExecutionException {
     createWriters();
     ExecutorService executorService = Executors.newSingleThreadExecutor();
-    underTest = new AsynchronousWriter(executorService, partitionToPath, pathToWriter,
+    underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
         allWriters, bufferQueue, maxWaitDuration, maxWaitDuration, bufferSize);
 
+    // build the tasks and fire them off
     int numPartitions = 3;
     List<Future<WriteTask>> futures = Lists.newArrayList();
     List<AggregateSample> samples = Lists.newArrayList();
-    for (int partitionNo = 0; partitionNo < numPartitions; partitionNo++) {
-      AggregateSample sample = new AggregateSample(partitionNo /* aggregateValue */,
-          UUID.randomUUID().toString() /* id */, partitionNo + 1, partitionNo + 2 /* timestamp */);
+    for (int partitionNum = 0; partitionNum < numPartitions; partitionNum++) {
+      AggregateSample sample = new AggregateSample(partitionNum /* aggregateValue */,
+          UUID.randomUUID().toString() /* assetId */, partitionNum + 1,
+          partitionNum + 2 /* timestamp */);
       samples.add(sample);
       futures.add(underTest.writeSample(sample));
     }
 
+    // wait for all tasks to execute
     for (Future<WriteTask> f : futures) {
       f.get();
     }
 
-    for (int partitionNo = 0; partitionNo < numPartitions; partitionNo++) {
-      String writtenPath = partitionToPath.get(partitionNo);
+    // verify that correct ASW processed the request
+    for (int partitionNum = 0; partitionNum < numPartitions; partitionNum++) {
+      String writtenPath = partitionNumToPath.get(partitionNum);
       AggregateSampleWriter expectedWriter = pathToWriter.get(writtenPath);
       for (AggregateSampleWriter writer : allWriters) {
-        AggregateSample s = samples.get(partitionNo);
+        AggregateSample s = samples.get(partitionNum);
         if (writer == expectedWriter) {
           verify(expectedWriter).writeSample(eq(s));
         } else {

@@ -1,5 +1,6 @@
 package com.tesla.interview.io;
 
+import static com.tesla.interview.io.AggregateSampleWriter.fromFile;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -31,15 +32,18 @@ public class TestAggregateWriter {
     String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
     File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
-    BufferedWriter writerSpy =
-        spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
-    doThrow(new IOException()).when(writerSpy).close();
+    try {
+      BufferedWriter writerSpy =
+          spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
+      doThrow(new IOException()).when(writerSpy).close();
 
-    AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
-    underTest.close();
-    verify(writerSpy).close();
+      AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
+      underTest.close();
+      verify(writerSpy).close();
 
-    file.delete();
+    } finally {
+      file.delete();
+    }
   }
 
   @Test
@@ -47,14 +51,16 @@ public class TestAggregateWriter {
     final String methodName = "testCloseFailsWithBadWriter";
     String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
     File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-    BufferedWriter writerSpy =
-        spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
+    try {
+      BufferedWriter writerSpy =
+          spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
 
-    AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
-    underTest.close();
-    verify(writerSpy).close();
-
-    file.delete();
+      AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
+      underTest.close();
+      verify(writerSpy).close();
+    } finally {
+      file.delete();
+    }
   }
 
   @Test
@@ -62,7 +68,7 @@ public class TestAggregateWriter {
     File fileMock = mock(File.class);
     when(fileMock.exists()).thenReturn(true);
     try {
-      AggregateSampleWriter writer = AggregateSampleWriter.fromFile(fileMock);
+      AggregateSampleWriter writer = fromFile(fileMock);
       writer.close();
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
@@ -147,21 +153,23 @@ public class TestAggregateWriter {
     final String methodName = "testWriteSucceedsWithMultipleWrites";
     String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
     File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+    try {
+      BufferedWriter writerSpy =
+          spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
+      AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
+      AggregateSample sampleMock = mock(AggregateSample.class);
 
-    BufferedWriter writerSpy =
-        spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
-    AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
-    AggregateSample sampleMock = mock(AggregateSample.class);
+      for (int i = 0; i < 10; i++) {
+        String dataToWrite = "POOP" + i;
+        doReturn(dataToWrite).when(sampleMock).toString();
+        underTest.writeSample(sampleMock);
+        verify(writerSpy).write(eq(dataToWrite));
+      }
 
-    for (int i = 0; i < 10; i++) {
-      String dataToWrite = "POOP" + i;
-      doReturn(dataToWrite).when(sampleMock).toString();
-      underTest.writeSample(sampleMock);
-      verify(writerSpy).write(eq(dataToWrite));
+      underTest.close();
+    } finally {
+      file.delete();
     }
-
-    underTest.close();
-    file.delete();
   }
 
 }

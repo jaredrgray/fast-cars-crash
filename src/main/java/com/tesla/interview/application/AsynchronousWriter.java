@@ -54,25 +54,25 @@ public class AsynchronousWriter implements Closeable {
         // print status periodically
         if (Duration.between(lastPrintTime, Instant.now()).compareTo(PRINT_INTERVAL) > 0) {
           lastPrintTime = Instant.now();
-          String message = String.format("progress -- ");
+          StringBuilder message = new StringBuilder("progress -- ");
           boolean doPrint = false;
           if (lastNumTasksScheduled < numWriteTasksScheduled.intValue()) {
-            message += String.format("numWriteTasksScheduled: %d",
-                numWriteTasksScheduled.intValue() - lastNumTasksScheduled);
+            message.append(String.format("numWriteTasksScheduled: %d",
+                numWriteTasksScheduled.intValue() - lastNumTasksScheduled));
             doPrint = true;
           }
           lastNumTasksScheduled = numWriteTasksScheduled.intValue();
           if (lastNumTasksCompleted < numWriteTasksCompleted.intValue()) {
             if (doPrint) {
-              message += ", ";
+              message.append(", ");
             }
-            message += String.format("numCompleted: %d",
-                numWriteTasksCompleted.intValue() - lastNumTasksCompleted);
+            message.append(String.format("numCompleted: %d",
+                numWriteTasksCompleted.intValue() - lastNumTasksCompleted));
             doPrint = true;
           }
 
           if (doPrint) {
-            LOG.info(message);
+            LOG.info(message.toString());
           }
           lastNumTasksCompleted = numWriteTasksCompleted.intValue();
         }
@@ -240,7 +240,7 @@ public class AsynchronousWriter implements Closeable {
    * Injection constructor for unit tests.
    * 
    * @param executor executor service to inject
-   * @param partitionNoToPath maps partition numbers to paths of files
+   * @param partitionNumToPath maps partition numbers to paths of files
    * @param pathToWriter maps paths of files to writers
    * @param writers writers to inject
    * @param bufferedWrites task queue to inject
@@ -248,7 +248,7 @@ public class AsynchronousWriter implements Closeable {
    * @param bufferSize max. size of the queue
    */
   AsynchronousWriter(ExecutorService executor, //
-      Map<Integer, String> partitionNoToPath, //
+      Map<Integer, String> partitionNumToPath, //
       Map<String, AggregateSampleWriter> pathToWriter, //
       List<AggregateSampleWriter> writers, //
       Queue<WriteTask> bufferedWrites, //
@@ -257,7 +257,7 @@ public class AsynchronousWriter implements Closeable {
       int bufferSize) {
 
     this.executor = executor;
-    this.partitionNumToPath = partitionNoToPath;
+    this.partitionNumToPath = partitionNumToPath;
     this.pathToWriter = pathToWriter;
     this.writers = writers;
     this.bufferedWrites = bufferedWrites;

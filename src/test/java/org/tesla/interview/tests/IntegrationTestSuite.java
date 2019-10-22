@@ -7,8 +7,8 @@ import org.junit.platform.suite.api.SelectPackages;
 import org.junit.runner.RunWith;
 
 /**
- * The unit test suite consists of all unit tests. By convention, these tests classes names' end
- * with "IntegrationTest" <strong>AND</strong> are tagged with
+ * The unit test suite consists of all integration tests. By convention, integration tests class
+ * names end with "IntegrationTest" <strong>AND</strong> are tagged with
  * {@link IntegrationTestSuite#INTEGRATION_TEST_TAG}.
  */
 @RunWith(JUnitPlatform.class)
@@ -19,5 +19,5 @@ public class IntegrationTestSuite {
 
   /** Tag to use for all integration tests. */
   public static final String INTEGRATION_TEST_TAG = "IntegrationTest";
-  
+
 }

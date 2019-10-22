@@ -11,13 +11,14 @@ public class TestAggregateSample {
   @Test
   void testConstructorAndGetters() {
     int aggregateValue = 0;
-    String id = UUID.randomUUID().toString();
+    String assetId = UUID.randomUUID().toString();
     int partitionNo = 1;
     long timestamp = 2L;
-    AggregateSample underTest = new AggregateSample(aggregateValue, id, partitionNo, timestamp);
+    AggregateSample underTest =
+        new AggregateSample(aggregateValue, assetId, partitionNo, timestamp);
 
     assertEquals(aggregateValue, underTest.getAggregateValue());
-    assertEquals(id, underTest.getAssetId());
+    assertEquals(assetId, underTest.getAssetId());
     assertEquals(partitionNo, underTest.getPartitionNo());
     assertEquals(timestamp, underTest.getTimestamp());
   }
