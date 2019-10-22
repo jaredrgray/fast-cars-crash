@@ -3,6 +3,9 @@ package com.tesla.interview.application.cli.validators;
 import com.beust.jcommander.IValueValidator;
 import com.beust.jcommander.ParameterException;
 
+/**
+ * Ensures the input integer is present as a non-negative and non-zero value.
+ */
 public class RequiredPositiveInteger implements IValueValidator<Integer> {
 
   @Override

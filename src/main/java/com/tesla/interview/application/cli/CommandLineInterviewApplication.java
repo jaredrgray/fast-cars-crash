@@ -11,8 +11,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
+/**
+ * Command line wrapper for {@link InterviewApplication}.
+ */
 public class CommandLineInterviewApplication {
 
+  /**
+   * Produces an {@link InterviewApplication} corresponding to the CLI input parameters. Can be
+   * subclassed in to deliver sufficiently loose coupling for unit tests.
+   */
   protected class AppFactory implements Supplier<InterviewApplication> {
     @Override
     public InterviewApplication get() {
@@ -34,11 +41,21 @@ public class CommandLineInterviewApplication {
     executeWrapper(new CommandLineInterviewApplication(args));
   }
 
+  /**
+   * Execute the specified application after parsing and validating its arguments. Print input
+   * validation exceptions to the console in a single line below the usage. Print a stack trace if
+   * an unexpected exception occurs.
+   * <p/>
+   * Package-visible for unit tests
+   * 
+   * @param cliApp application to execute
+   */
   static void executeWrapper(CommandLineInterviewApplication cliApp) {
     try {
       cliApp.parseArgs();
       cliApp.validateArgs();
       if (!cliApp.parsedArguments.isHelpCommand) {
+        // validation successful; execute app
         cliApp.execute();
       } else {
         // just printing help
@@ -46,11 +63,11 @@ public class CommandLineInterviewApplication {
       }
     } catch (RuntimeException e) {
       if (e instanceof ParameterException || e instanceof IllegalArgumentException) {
-        // validation failed
+        // validation failed; print usage and exception to console
         cliApp.commander.usage();
         cliApp.commander.getConsole().println(e.getMessage());
       } else {
-        // unexpected exception: dump stack trace
+        // unexpected exception; dump stack trace
         cliApp.commander.getConsole()
             .println(String.format("unexpected error: %s", e.getMessage()));
         consoleTrace(cliApp.commander.getConsole(), e);
@@ -61,7 +78,7 @@ public class CommandLineInterviewApplication {
   }
 
   /**
-   * Build a list of output files.
+   * Build a list of paths to output files.
    * <p>
    * Package-visible for unit tests.
    * </p>
@@ -88,12 +105,17 @@ public class CommandLineInterviewApplication {
   /**
    * Primary constructor. Our main method calls this.
    * 
-   * @param args command-line arguments
+   * @param args command line arguments
    */
   public CommandLineInterviewApplication(String[] args) {
     this(new JCommander(), args);
   }
 
+  /**
+   * Injection constructor for unit tests.
+   * 
+   * @param args command line arguments to inject
+   */
   CommandLineInterviewApplication(CommandLineArgs args) {
     this(new JCommander(args), args);
   }
@@ -110,6 +132,12 @@ public class CommandLineInterviewApplication {
     this.rawArgs = null;
   }
 
+  /**
+   * Injection constructor for unit tests.
+   * 
+   * @param commander commander to inject
+   * @param args command line arguments to inject
+   */
   CommandLineInterviewApplication(JCommander commander, String[] args) {
     this.commander = commander;
     this.parsedArguments = null;
@@ -123,6 +151,7 @@ public class CommandLineInterviewApplication {
     if (parsedArguments != null) {
       InterviewApplication app = appFactory.get();
       if (app != null) {
+        // not-null check is needed for unit tests only, where a dummy factory is provided
         app.call();
       }
     } else {
@@ -133,7 +162,7 @@ public class CommandLineInterviewApplication {
   /**
    * Parse the input args.
    * 
-   * @throws ParameterException when there is a problem with one or more arguments provided
+   * @throws IllegalArgumentException when there is a problem with one or more arguments provided
    */
   void parseArgs() throws ParameterException {
     if (parsedArguments == null) {

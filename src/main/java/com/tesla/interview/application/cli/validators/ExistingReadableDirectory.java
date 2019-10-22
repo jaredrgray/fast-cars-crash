@@ -5,6 +5,9 @@ import com.beust.jcommander.ParameterException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+/**
+ * Ensures the file parameter corresponds to an existing directory that we have permission to read.
+ */
 public class ExistingReadableDirectory implements IValueValidator<String> {
 
   @Override

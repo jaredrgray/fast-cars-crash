@@ -104,10 +104,18 @@ public class AsynchronousWriter implements Closeable {
     }
   }
 
+  /**
+   * Encapsulates a request to append an {@link AggregateSample} to an output file.
+   */
   class WriteTask implements Callable<WriteTask> {
     private AggregateSample sample;
     private AtomicReference<Future<WriteTask>> scheduled;
 
+    /**
+     * Canonical constructor.
+     * 
+     * @param sample sample to write
+     */
     WriteTask(AggregateSample sample) {
       this.sample = sample;
       scheduled = new AtomicReference<Future<WriteTask>>(null /* initialValue */);
@@ -123,12 +131,17 @@ public class AsynchronousWriter implements Closeable {
         numWriteTasksCompleted.incrementAndGet();
         return null /* success! */;
       } else {
-        String message = String.format("Invalid path -- sample: %s, path: %s, writerExists: %b",
-            sample, path, writer != null);
-        throw new IllegalArgumentException(message); // null-safe
+        throw new IllegalArgumentException(
+            String.format("Invalid path -- sample: %s, path: %s, writerExists: %b", sample, path,
+                writer != null)); // null-safe
       }
     }
 
+    /**
+     * Block until the task is scheduled for later execution, then return it.
+     * 
+     * @return a progress indicator for task execution
+     */
     Future<WriteTask> awaitScheduling() {
       while (scheduled.get() == null) {
         try {
@@ -140,6 +153,11 @@ public class AsynchronousWriter implements Closeable {
       return scheduled.get();
     }
 
+    /**
+     * A hook called by the write scheduler to notify the task that it has been scheduled.
+     * 
+     * @param taskFuture progress indicator of task execution
+     */
     void scheduledHook(Future<WriteTask> taskFuture) {
       boolean itWorked = scheduled.compareAndSet(null, taskFuture);
       if (!itWorked) {
@@ -172,7 +190,7 @@ public class AsynchronousWriter implements Closeable {
   final AtomicInteger numWriteTasksScheduled = new AtomicInteger(0);
 
   /**
-   * Constructor.
+   * Canonical constructor.
    * 
    * @param threadPoolSize number of threads for this writer
    * @param partitionNoToPath map from partition number to file system path
@@ -197,6 +215,7 @@ public class AsynchronousWriter implements Closeable {
     this.maxWaitDuration = DEFAULT_MAX_WAIT;
     this.pollDelay = DEFAULT_POLL_DELAY;
 
+    // open files and track association between partition number and output file
     for (String path : partitionNoToPath.values()) {
       File file = Paths.get(path).toFile();
       if (!pathToWriter.containsKey(path)) {
@@ -213,28 +232,30 @@ public class AsynchronousWriter implements Closeable {
       }
     }
 
+    // scheduler starts at construction time
     scheduler.start();
   }
 
   /**
    * Injection constructor for unit tests.
    * 
-   * @param executor executor to inject
+   * @param executor executor service to inject
    * @param partitionNoToPath maps partition numbers to paths of files
    * @param pathToWriter maps paths of files to writers
    * @param writers writers to inject
+   * @param bufferedWrites task queue to inject
+   * @param maxWaitDuration maximum time we are willing to wait for thread termination
+   * @param bufferSize max. size of the queue
    */
-  // @formatter:off
-  AsynchronousWriter(
-      ExecutorService executor,
-      Map<Integer, String> partitionNoToPath,
-      Map<String, AggregateSampleWriter> pathToWriter,
-      List<AggregateSampleWriter> writers,
-      Queue<WriteTask> bufferedWrites,
-      Duration maxWaitDuration,
-      Duration pollDelay,
+  AsynchronousWriter(ExecutorService executor, //
+      Map<Integer, String> partitionNoToPath, //
+      Map<String, AggregateSampleWriter> pathToWriter, //
+      List<AggregateSampleWriter> writers, //
+      Queue<WriteTask> bufferedWrites, //
+      Duration maxWaitDuration, //
+      Duration pollDelay, //
       int bufferSize) {
-    
+
     this.executor = executor;
     this.partitionNumToPath = partitionNoToPath;
     this.pathToWriter = pathToWriter;
@@ -243,14 +264,15 @@ public class AsynchronousWriter implements Closeable {
     this.maxWaitDuration = maxWaitDuration;
     this.pollDelay = pollDelay;
     this.bufferSize = bufferSize;
-    
+
+    // scheduler starts at construction time
     scheduler.start();
   }
-  // @formatter:on
 
   @Override
   public void close() {
     if (isClosed.compareAndSet(false, true)) {
+      // close requested for the first time
       for (AggregateSampleWriter asw : pathToWriter.values()) {
         asw.close();
       }
@@ -258,7 +280,7 @@ public class AsynchronousWriter implements Closeable {
       executor.shutdown();
       Supplier<Boolean> notTerminated = () -> !executor.isTerminated();
       Duration executorWaitDuration = bestEffortWait(maxWaitDuration, notTerminated);
-      if (!executor.isTerminated()) {
+      if (notTerminated.get()) {
         LOG.warn(
             String.format("Could not shut down executor service within %s", executorWaitDuration));
       } else {
@@ -268,7 +290,7 @@ public class AsynchronousWriter implements Closeable {
 
       Supplier<Boolean> isAlive = () -> scheduler.isAlive();
       Duration schedulerWaitDuration = bestEffortWait(maxWaitDuration, isAlive);
-      if (scheduler.isAlive()) {
+      if (isAlive.get()) {
         LOG.warn(String.format("Could not shut down scheduler within %s", schedulerWaitDuration));
       } else {
         LOG.info(String.format("Shut down scheduler successfully in %s", schedulerWaitDuration));
@@ -277,7 +299,7 @@ public class AsynchronousWriter implements Closeable {
   }
 
   /**
-   * Write the aggregated sample to the output file.
+   * Add the aggregated sample to the write queue.
    * 
    * @param sample aggregation to write
    * @return a progress indicator for the write
@@ -304,6 +326,14 @@ public class AsynchronousWriter implements Closeable {
     return task.awaitScheduling();
   }
 
+  /**
+   * Suspend this thread on the specified condition until it returns <code>false</code> or the
+   * timeout expires, whichever happens first.
+   * 
+   * @param maxWaitDuration maximum time we are willing to wait
+   * @param waitCondition a function defining the condition to be waited on
+   * @return amount of time we waited
+   */
   private Duration bestEffortWait(Duration maxWaitDuration, Supplier<Boolean> waitCondition) {
 
     Instant startWaitTime = Instant.now();

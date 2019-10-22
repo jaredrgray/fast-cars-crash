@@ -6,6 +6,9 @@ import com.tesla.interview.application.cli.validators.ExistingReadableDirectory;
 import com.tesla.interview.application.cli.validators.ExistingReadableFile;
 import com.tesla.interview.application.cli.validators.RequiredPositiveInteger;
 
+/**
+ * Command line arguments for CLI interface of the application.
+ */
 @Parameters(separators = " =")
 public class CommandLineArgs {
 
