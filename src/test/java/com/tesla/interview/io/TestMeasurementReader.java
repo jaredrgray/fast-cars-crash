@@ -167,6 +167,7 @@ public class TestMeasurementReader {
         new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
     BufferedReader readerSpy = spy(reader);
 
+    when(readerSpy.read()).thenReturn(1);
     when(readerSpy.readLine()).thenThrow(new IOException());
     MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
     try {
@@ -195,7 +196,7 @@ public class TestMeasurementReader {
     Set<IntegerHashtag> tags = Sets.newHashSet(IntegerHashtag.FIVE);
     MeasurementSample sample =
         new MeasurementSample(0 /* timestamp */, 1 /* partitionNo */, sampleId, tags);
-    when(readerSpy.read()).thenReturn(1).thenReturn(-1);
+    when(readerSpy.read()).thenReturn(1).thenReturn(1).thenReturn(-1);
     doReturn(sample.toString()).when(readerSpy).readLine();
 
     MeasurementSampleReader underTest = null;
@@ -238,6 +239,16 @@ public class TestMeasurementReader {
 
     // @formatter:off
     when(readerSpy.read())
+      .thenReturn(1)
+      .thenReturn(1)
+      .thenReturn(1)
+      .thenReturn(1)
+      .thenReturn(1)
+      .thenReturn(1)
+      .thenReturn(1)
+      .thenReturn(1)
+      .thenReturn(1)
+      .thenReturn(1)
       .thenReturn(1)
       .thenReturn(1)
       .thenReturn(1)

@@ -128,6 +128,7 @@ public class TestAsynchronousWriter {
     ExecutorService executorService = Executors.newSingleThreadExecutor();
     underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
         allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
+    underTest.startScheduler();
 
     // submit a task that will not complete before close() timeout
     executorService.submit(new Runnable() {
@@ -154,6 +155,7 @@ public class TestAsynchronousWriter {
     createWriters();
     underTest = new AsynchronousWriter(Executors.newSingleThreadExecutor(), partitionNumToPath,
         pathToWriter, allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
+    underTest.startScheduler();
     underTest.close();
 
     assertTrue(underTest.isClosed.get());
@@ -185,6 +187,7 @@ public class TestAsynchronousWriter {
 
     underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
         allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
+    underTest.startScheduler();
     underTest.close();
 
     assertTrue(underTest.isClosed.get());
@@ -197,6 +200,7 @@ public class TestAsynchronousWriter {
   @Test
   void testConstructorPositive() {
     underTest = new AsynchronousWriter(1 /* threadPoolSize */, partitionNumToPath);
+    underTest.startScheduler();
     assertEquals(1, underTest.bufferSize);
     assertTrue(underTest.scheduler.isAlive());
   }
@@ -282,6 +286,7 @@ public class TestAsynchronousWriter {
     ExecutorService executorService = Executors.newSingleThreadExecutor();
     underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
         allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
+    underTest.startScheduler();
 
     // build the tasks and fire them off
     int partitionNo = 2;
@@ -308,6 +313,7 @@ public class TestAsynchronousWriter {
     ExecutorService executorService = Executors.newSingleThreadExecutor();
     underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
         allWriters, bufferQueue, maxWaitDuration, maxWaitDuration, bufferSize);
+    underTest.startScheduler();
 
     // build the tasks and fire them off
     int numPartitions = 3;

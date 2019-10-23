@@ -17,7 +17,6 @@ package com.tesla.interview.application;
 import static com.tesla.interview.application.ApplicationTools.logTrace;
 import static java.lang.Math.ceil;
 import static org.apache.logging.log4j.LogManager.getLogger;
-
 import com.google.common.collect.Maps;
 import com.tesla.interview.application.AsynchronousWriter.WriteTask;
 import com.tesla.interview.io.MeasurementSampleReader;
@@ -116,7 +115,10 @@ public class InterviewApplication implements Callable<Void> {
         // TODO make this behavior configurable via parameter flag
         File ourFile = Paths.get(ourPath).toFile();
         if (ourFile != null && ourFile.exists()) {
-          ourFile.delete();
+          if (!ourFile.delete()) {
+            throw new IllegalStateException(
+                String.format("Failed to delete file -- path: %s", ourFile.getPath()));
+          }
         }
 
         // maintain maps
@@ -124,6 +126,7 @@ public class InterviewApplication implements Callable<Void> {
         partitionNumToThreadNo.put(partitionNo, threadNo);
       }
       AsynchronousWriter writer = new AsynchronousWriter(numWriteThreads, partitionNumToPath);
+      writer.startScheduler();
       threadNumToWriter.put(threadNo, writer);
     }
 

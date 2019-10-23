@@ -15,7 +15,6 @@
 package com.tesla.interview.io;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
-
 import com.google.common.io.Files;
 import com.tesla.interview.model.MeasurementSample;
 import java.io.BufferedReader;
@@ -24,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 import org.apache.logging.log4j.Logger;
 
 /**
@@ -43,7 +43,7 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
     return new MeasurementSampleReader(1 /* lineNo */, null /* path */, reader);
   }
 
-  private volatile int lineNo;
+  private int lineNo;
   private final String path;
   private final BufferedReader reader;
 
@@ -102,6 +102,9 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
 
   @Override
   public MeasurementSample next() {
+    if (!hasNext()) {
+      throw new NoSuchElementException();
+    }
     try {
       String nextLine = reader.readLine();
       this.lineNo++;

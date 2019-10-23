@@ -108,9 +108,9 @@ public class MeasurementSample {
     this.hashtags = hashtags;
   }
 
+  @Override
   @SuppressWarnings("checkstyle:NeedBraces")
   @Generated
-  @Override
   public boolean equals(Object obj) {
     if (this == obj)
       return true;
@@ -119,15 +119,15 @@ public class MeasurementSample {
     if (getClass() != obj.getClass())
       return false;
     MeasurementSample other = (MeasurementSample) obj;
-    if (hashtags == null) {
-      if (other.hashtags != null)
-        return false;
-    } else if (!hashtags.equals(other.hashtags))
-      return false;
     if (assetId == null) {
       if (other.assetId != null)
         return false;
     } else if (!assetId.equals(other.assetId))
+      return false;
+    if (hashtags == null) {
+      if (other.hashtags != null)
+        return false;
+    } else if (!hashtags.equals(other.hashtags))
       return false;
     if (partitionNo != other.partitionNo)
       return false;
@@ -136,12 +136,12 @@ public class MeasurementSample {
     return true;
   }
 
-  public Set<IntegerHashtag> getHashtags() {
-    return hashtags;
-  }
-
   public String getAssetId() {
     return assetId;
+  }
+
+  public Set<IntegerHashtag> getHashtags() {
+    return hashtags;
   }
 
   public int getPartitionNo() {
@@ -150,6 +150,18 @@ public class MeasurementSample {
 
   public long getTimestamp() {
     return timestamp;
+  }
+
+  @Override
+  @Generated
+  public int hashCode() {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + ((assetId == null) ? 0 : assetId.hashCode());
+    result = prime * result + ((hashtags == null) ? 0 : hashtags.hashCode());
+    result = prime * result + partitionNo;
+    result = prime * result + (int) (timestamp ^ (timestamp >>> 32));
+    return result;
   }
 
   @Override

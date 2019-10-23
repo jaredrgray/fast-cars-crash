@@ -141,7 +141,10 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
       newFile.toFile().delete();
       partitionNumToPath.put(partitionNum, newFile.toString());
     }
-    return new AsynchronousWriter(partitionsForThread.size(), partitionNumToPath);
+    AsynchronousWriter asynchronousWriter =
+        new AsynchronousWriter(partitionsForThread.size(), partitionNumToPath);
+    asynchronousWriter.startScheduler();
+    return asynchronousWriter;
   }
 
   /**

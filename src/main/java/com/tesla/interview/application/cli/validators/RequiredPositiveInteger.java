@@ -28,9 +28,9 @@ public class RequiredPositiveInteger implements IValueValidator<Integer> {
       throw new ParameterException(String.format("%s cannot be null", name));
     }
 
-    if (value.intValue() <= 0) {
+    if (Integer.compare(value, 1) < 0) {
       throw new ParameterException(
-          String.format("%s must be a positive integer (was %d)", name, value.intValue()));
+          String.format("%s must be a positive integer (was %d)", name, value));
     }
   }
 

@@ -42,6 +42,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import org.apache.logging.log4j.Logger;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Asynchronously writes input {@link AggregateSample}s to an output file via
@@ -96,6 +97,7 @@ public class AsynchronousWriter implements Closeable {
     /**
      * Use a condition variable to schedule tasks efficiently.
      */
+    @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
     private void scheduleTasks() {
       bufferLock.lock();
       try {
@@ -186,7 +188,6 @@ public class AsynchronousWriter implements Closeable {
   private static final Duration PRINT_INTERVAL = Duration.ofSeconds(15);
   private static final Duration DEFAULT_POLL_DELAY = Duration.ofMillis(50);
 
-  final Queue<WriteTask> bufferedWrites;
   final int bufferSize;
   final ExecutorService executor;
   final Duration maxWaitDuration;
@@ -195,14 +196,15 @@ public class AsynchronousWriter implements Closeable {
   final Duration pollDelay;
   final WriteScheduler scheduler = new WriteScheduler();
   final List<AggregateSampleWriter> writers;
-
   final Lock bufferLock = new ReentrantLock();
+  final Queue<WriteTask> bufferedWrites;
+
   final Condition bufferHasRoom = bufferLock.newCondition();
   final Condition bufferHasTask = bufferLock.newCondition();
   final AtomicBoolean isClosed = new AtomicBoolean(false);
   final AtomicInteger numWriteTasksCompleted = new AtomicInteger(0);
   final AtomicInteger numWriteTasksScheduled = new AtomicInteger(0);
-
+  
   /**
    * Canonical constructor.
    * 
@@ -245,9 +247,6 @@ public class AsynchronousWriter implements Closeable {
             "Cannot specify identical path more than once -- path: " + path);
       }
     }
-
-    // scheduler starts at construction time
-    scheduler.start();
   }
 
   /**
@@ -278,9 +277,6 @@ public class AsynchronousWriter implements Closeable {
     this.maxWaitDuration = maxWaitDuration;
     this.pollDelay = pollDelay;
     this.bufferSize = bufferSize;
-
-    // scheduler starts at construction time
-    scheduler.start();
   }
 
   @Override
@@ -313,11 +309,19 @@ public class AsynchronousWriter implements Closeable {
   }
 
   /**
+   * Start the scheduler thread.
+   */
+  public void startScheduler() {
+    scheduler.start();
+  }
+
+  /**
    * Add the aggregated sample to the write queue.
    * 
    * @param sample aggregation to write
    * @return a progress indicator for the write
    */
+  @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
   public Future<WriteTask> writeSample(AggregateSample sample) {
     bufferLock.lock();
     WriteTask task = null;
@@ -348,6 +352,7 @@ public class AsynchronousWriter implements Closeable {
    * @param waitCondition a function defining the condition to be waited on
    * @return amount of time we waited
    */
+  @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
   private Duration bestEffortWait(Duration maxWaitDuration, Supplier<Boolean> waitCondition) {
 
     Instant startWaitTime = Instant.now();
