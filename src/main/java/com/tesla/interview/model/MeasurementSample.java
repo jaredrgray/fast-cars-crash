@@ -93,7 +93,7 @@ public class MeasurementSample {
   private final long timestamp;
 
   /**
-   * Constructor.
+   * Canonical constructor.
    * 
    * @param timestamp number of milliseconds since January 1, 1970:UTC
    * @param partitionNo TODO (I can't define this well based on specification provided)

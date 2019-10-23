@@ -14,12 +14,11 @@
 
 package com.tesla.interview.application;
 
-import static com.tesla.interview.application.InterviewApplication.aggregateMeasurement;
 import static com.tesla.interview.tests.IntegrationTestSuite.INTEGRATION_TEST_TAG;
 import static java.lang.Math.floorMod;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Lists;
@@ -33,9 +32,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.OngoingStubbing;
@@ -65,7 +67,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
       Map<Integer, AsynchronousWriter> threadNoToWriter = Maps.newHashMap();
       for (int threadNum = 0; threadNum < numThreads; threadNum++) {
         threadNoToWriter.put(threadNum,
-            spy(createWriter(filesCreated, threadNumToPartitions, methodName, threadNum)));
+            createWriter(filesCreated, threadNumToPartitions, methodName, threadNum));
       }
 
       // build and run the app
@@ -75,14 +77,15 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
       List<MeasurementSample> ordered = stubNext(numSamples, numPartitions, mockReader);
       underTest.call();
 
-      // TODO verify all measurements were emitted in correct order
+      // verify all measurements were emitted in correct order
       for (int i = 0; i < ordered.size(); i++) {
-        MeasurementSample sample = ordered.get(i);
-        int partitionNum = sample.getPartitionNo() - 1; // our map is indexed from zero
+        MeasurementSample expectedSample = ordered.get(i);
+        int partitionNum = expectedSample.getPartitionNo() - 1; // our map is indexed from zero
         int expectedThreadNum = partitionNumToThreadNo.get(partitionNum);
-        AsynchronousWriter spyWriter = threadNoToWriter.get(expectedThreadNum);
-        AggregateSample expectedWritten = aggregateMeasurement(sample);
-        // verify(spyWriter.writeSample(eq(expectedWritten)));
+        AsynchronousWriterSpy writer =
+            (AsynchronousWriterSpy) threadNoToWriter.get(expectedThreadNum);
+        String actualAssetId = writer.ids.poll();
+        assertEquals(expectedSample.getAssetId(), actualAssetId);
       }
 
     } finally {
@@ -129,7 +132,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
    * @return created writer
    * @throws IOException if temporary file cannot be created
    */
-  private AsynchronousWriter createWriter(//
+  private AsynchronousWriterSpy createWriter(//
       List<Path> filesCreated, //
       Map<Integer, List<Integer>> threadNumToPartitions, //
       String methodName, //
@@ -144,10 +147,26 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
       assertTrue(newFile.toFile().delete());
       partitionNumToPath.put(partitionNum, newFile.toString());
     }
-    AsynchronousWriter asynchronousWriter =
-        new AsynchronousWriter(partitionsForThread.size(), partitionNumToPath);
-    asynchronousWriter.startScheduler();
-    return asynchronousWriter;
+    AsynchronousWriterSpy writer =
+        new AsynchronousWriterSpy(partitionsForThread.size(), partitionNumToPath);
+    writer.startScheduler();
+    return writer;
+  }
+
+
+  class AsynchronousWriterSpy extends AsynchronousWriter {
+    Queue<String> ids = new ArrayDeque<>();
+
+    @Override
+    public Future<WriteTask> writeSample(AggregateSample sample) {
+      Future<WriteTask> writeSample = super.writeSample(sample);
+      ids.add(sample.getAssetId());
+      return writeSample;
+    }
+
+    public AsynchronousWriterSpy(int threadPoolSize, Map<Integer, String> partitionNoToPath) {
+      super(threadPoolSize, partitionNoToPath);
+    }
   }
 
   /**

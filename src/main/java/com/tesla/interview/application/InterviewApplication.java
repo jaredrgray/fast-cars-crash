@@ -38,6 +38,10 @@ import java.util.concurrent.TimeoutException;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * Parses an input file into a series of {@link MeasurementSample}s, aggregate them, then executes
+ * a series of {@link WriteTask}s to write the resulting aggregation to an output file.
+ */
 public class InterviewApplication implements Callable<Void> {
 
   private static final Logger LOG = getLogger(InterviewApplication.class);

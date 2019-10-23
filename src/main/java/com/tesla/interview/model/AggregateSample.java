@@ -27,7 +27,7 @@ public class AggregateSample {
   private final long timestamp;
 
   /**
-   * Constructor.
+   * Canonical constructor.
    * 
    * @param aggregateValue aggregation value of constituent samples
    * @param assetId unique identifier for the asset
