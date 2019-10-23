@@ -25,6 +25,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.tesla.interview.model.IntegerHashtag;
@@ -51,14 +52,14 @@ public class TestMeasurementReader {
     File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
     BufferedReader reader =
-        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
+        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);
     try {
       MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
       underTest.close();
       verify(readerSpy).close();
     } finally {
-      sampleFile.delete();
+      assertTrue(sampleFile.delete());
     }
   }
 
@@ -69,7 +70,7 @@ public class TestMeasurementReader {
     File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
     BufferedReader reader =
-        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
+        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);
     doThrow(new IOException()).when(readerSpy).close();
 
@@ -78,7 +79,7 @@ public class TestMeasurementReader {
       underTest.close();
       verify(readerSpy).close();
     } finally {
-      sampleFile.delete();
+      assertTrue(sampleFile.delete());
     }
   }
 
@@ -98,7 +99,7 @@ public class TestMeasurementReader {
       if (underTest != null) {
         underTest.close();
       }
-      sampleFile.delete();
+      assertTrue(sampleFile.delete());
     }
   }
 
@@ -130,7 +131,7 @@ public class TestMeasurementReader {
       if (underTest != null) {
         underTest.close();
       }
-      sampleFile.delete();
+      assertTrue(sampleFile.delete());
     }
   }
 
@@ -141,7 +142,7 @@ public class TestMeasurementReader {
     File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
     BufferedReader reader =
-        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
+        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);
 
     when(readerSpy.read()).thenThrow(new IOException());
@@ -153,7 +154,7 @@ public class TestMeasurementReader {
       assertTrue(e.getMessage().contains(UNEXPECTED_ERROR_WHILE_READING));
     } finally {
       underTest.close();
-      sampleFile.delete();
+      assertTrue(sampleFile.delete());
     }
   }
 
@@ -164,7 +165,7 @@ public class TestMeasurementReader {
     File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
     BufferedReader reader =
-        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
+        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);
 
     when(readerSpy.read()).thenReturn(1);
@@ -177,7 +178,7 @@ public class TestMeasurementReader {
       assertTrue(e.getMessage().contains(UNEXPECTED_ERROR_WHILE_READING));
     } finally {
       underTest.close();
-      sampleFile.delete();
+      assertTrue(sampleFile.delete());
     }
   }
 
@@ -189,7 +190,7 @@ public class TestMeasurementReader {
     File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
     BufferedReader reader =
-        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
+        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);
 
     String sampleId = UUID.randomUUID().toString();
@@ -211,7 +212,7 @@ public class TestMeasurementReader {
       if (underTest != null) {
         underTest.close();
       }
-      sampleFile.delete();
+      assertTrue(sampleFile.delete());
     }
   }
 
@@ -222,7 +223,7 @@ public class TestMeasurementReader {
     File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
     BufferedReader reader =
-        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile)));
+        new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);
 
     List<MeasurementSample> samples = Lists.newArrayList();
@@ -287,7 +288,7 @@ public class TestMeasurementReader {
       }
     } finally {
       underTest.close();
-      sampleFile.delete();
+      assertTrue(sampleFile.delete());
     }
   }
 }

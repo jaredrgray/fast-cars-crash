@@ -17,6 +17,7 @@ package com.tesla.interview.application;
 import static com.tesla.interview.application.InterviewApplication.aggregateMeasurement;
 import static com.tesla.interview.tests.IntegrationTestSuite.INTEGRATION_TEST_TAG;
 import static java.lang.Math.floorMod;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -28,6 +29,7 @@ import com.tesla.interview.io.MeasurementSampleReader;
 import com.tesla.interview.model.AggregateSample;
 import com.tesla.interview.model.IntegerHashtag;
 import com.tesla.interview.model.MeasurementSample;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,6 +44,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
 
   @Test
   @Tag(INTEGRATION_TEST_TAG)
+  @SuppressFBWarnings()
   void testCallHappyIntegration() throws IOException {
     // set test parameters
     List<Path> filesCreated = Lists.newArrayList();
@@ -72,7 +75,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
       List<MeasurementSample> ordered = stubNext(numSamples, numPartitions, mockReader);
       underTest.call();
 
-      // verify all measurements were emitted in correct order
+      // TODO verify all measurements were emitted in correct order
       for (int i = 0; i < ordered.size(); i++) {
         MeasurementSample sample = ordered.get(i);
         int partitionNum = sample.getPartitionNo() - 1; // our map is indexed from zero
@@ -84,7 +87,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
 
     } finally {
       for (Path p : filesCreated) {
-        p.toFile().delete();
+        assertTrue(p.toFile().delete());
       }
     }
   }
@@ -138,7 +141,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
       String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
       Path newFile = Files.createTempFile(filePrefix/* prefix */, null /* suffix */);
       filesCreated.add(newFile);
-      newFile.toFile().delete();
+      assertTrue(newFile.toFile().delete());
       partitionNumToPath.put(partitionNum, newFile.toString());
     }
     AsynchronousWriter asynchronousWriter =
@@ -176,7 +179,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
     for (int i = 0; i < numSamples; i++) {
       w = w.thenReturn(true);
     }
-    w = w.thenReturn(false);
+    w.thenReturn(false);
   }
 
   /**
@@ -207,7 +210,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
       whenNext = whenNext.thenReturn(rando);
       created.add(rando);
     }
-    whenNext = whenNext.thenThrow(new IllegalStateException("next() called too many times"));
+    whenNext.thenThrow(new IllegalStateException("next() called too many times"));
     return created;
   }
 }

@@ -31,14 +31,44 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import com.tesla.interview.application.InterviewApplication;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class TestCommandLineApplication {
+
+  private static class FileDeletor implements FileVisitor<Path> {
+    @Override
+    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+      return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+        throws IOException {
+      return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+      if (file.toFile().isFile()) {
+        assertTrue(file.toFile().delete());
+      }
+      return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+      fail("visit failed");
+      return FileVisitResult.TERMINATE;
+    }
+  }
 
   /**
    * This is a normal {@link CommandLineInterviewApplication} except that
@@ -47,7 +77,7 @@ public class TestCommandLineApplication {
    * The idea is to prevent this test suite from calling {@link InterviewApplication}'s code, which
    * is outside the scope of a unit test.
    */
-  private class MockedCliApp extends CommandLineInterviewApplication {
+  private static class MockedCliApp extends CommandLineInterviewApplication {
 
     private MockedCliApp(CommandLineArgs args) {
       super(args);
@@ -86,8 +116,8 @@ public class TestCommandLineApplication {
     try {
       new MockedCliApp(args);
     } finally {
-      validDir.toFile().delete();
-      validFile.toFile().delete();
+      assertTrue(validDir.toFile().delete());
+      assertTrue(validFile.toFile().delete());
     }
   }
 
@@ -98,7 +128,7 @@ public class TestCommandLineApplication {
 
     Path validDir = Files.createTempDirectory(filePrefix);;
     Path invalidFile = Files.createTempFile(filePrefix, null /* suffix */);
-    invalidFile.toFile().delete();
+    assertTrue(invalidFile.toFile().delete());
 
     CommandLineArgs args = new CommandLineArgs();
     args.inputFile = invalidFile.toString();
@@ -118,7 +148,7 @@ public class TestCommandLineApplication {
     } catch (NullPointerException e) {
       verify(spyCommander, never()).usage();
     } finally {
-      validDir.toFile().delete();
+      assertTrue(validDir.toFile().delete());
     }
   }
 
@@ -129,7 +159,7 @@ public class TestCommandLineApplication {
 
     Path validDir = Files.createTempDirectory(filePrefix);;
     Path invalidFile = Files.createTempFile(filePrefix, null /* suffix */);
-    invalidFile.toFile().delete();
+    assertTrue(invalidFile.toFile().delete());
 
     CommandLineArgs args = new CommandLineArgs();
     args.inputFile = invalidFile.toString();
@@ -146,7 +176,7 @@ public class TestCommandLineApplication {
       executeWrapper(appSpy);
       verify(mockCommander).usage();
     } finally {
-      validDir.toFile().delete();
+      assertTrue(validDir.toFile().delete());
     }
   }
 
@@ -161,7 +191,7 @@ public class TestCommandLineApplication {
       assertTrue(filePaths.get(0).contains(filePrefix));
       assertTrue(filePaths.get(0).endsWith(1 + CSV_EXTENSION));
     } finally {
-      tempDir.toFile().delete();
+      assertTrue(tempDir.toFile().delete());
     }
   }
 
@@ -178,7 +208,7 @@ public class TestCommandLineApplication {
         assertTrue(filePaths.get(i).endsWith((i + 1) + CSV_EXTENSION));
       }
     } finally {
-      tempDir.toFile().delete();
+      assertTrue(tempDir.toFile().delete());
     }
   }
 
@@ -191,7 +221,7 @@ public class TestCommandLineApplication {
       List<String> filePaths = getOutputFiles(0 /* numPartitions */, tempDir);
       assertEquals(0, filePaths.size());
     } finally {
-      tempDir.toFile().delete();
+      assertTrue(tempDir.toFile().delete());
     }
   }
 
@@ -214,14 +244,15 @@ public class TestCommandLineApplication {
     String methodName = "testMainExecutesSuccessfullyWithValidArguments";
     String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
 
-    Path validDir = Files.createTempDirectory(filePrefix);;
+    Path validDir = Files.createTempDirectory(filePrefix);
     Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
     try {
       main(new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w",
           "1"});
     } finally {
-      validDir.toFile().delete();
-      validFile.toFile().delete();
+      assertTrue(validFile.toFile().delete());
+      Files.walkFileTree(validDir, new FileDeletor());
+      assertTrue(validDir.toFile().delete());
     }
   }
 
@@ -237,8 +268,9 @@ public class TestCommandLineApplication {
       main(new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w",
           "1"});
     } finally {
-      validDir.toFile().delete();
-      validFile.toFile().delete();
+      assertTrue(validFile.toFile().delete());
+      Files.walkFileTree(validDir, new FileDeletor());
+      assertTrue(validDir.toFile().delete());
     }
   }
 
@@ -270,10 +302,10 @@ public class TestCommandLineApplication {
         assertTrue(e.getMessage().contains("cannot be null"));
       } finally {
         if (validDir != null) {
-          validDir.toFile().delete();
+          assertTrue(validDir.toFile().delete());
         }
         if (validFile != null) {
-          validFile.toFile().delete();
+          assertTrue(validFile.toFile().delete());
         }
       }
     }

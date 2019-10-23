@@ -32,6 +32,7 @@ import com.google.common.collect.Queues;
 import com.tesla.interview.application.AsynchronousWriter.WriteTask;
 import com.tesla.interview.io.AggregateSampleWriter;
 import com.tesla.interview.model.AggregateSample;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -46,6 +47,7 @@ import java.util.Queue;
 import java.util.Stack;
 import java.util.UUID;
 import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -92,7 +94,7 @@ public class TestAsynchronousWriter {
     while (!filesToWrite.empty()) {
       File createdFile = filesToWrite.pop().toFile();
       if (createdFile.exists()) {
-        createdFile.delete();
+        assertTrue(createdFile.delete());
       }
     }
   }
@@ -102,7 +104,7 @@ public class TestAsynchronousWriter {
     filesToWrite = new Stack<>();
     for (int i = 0; i < 10; i++) {
       File createdFile = File.createTempFile(getClass().getName(), null /* suffix */);
-      createdFile.delete();
+      assertTrue(createdFile.delete());
       filesToWrite.add(Paths.get(createdFile.getPath()));
     }
 
@@ -123,7 +125,8 @@ public class TestAsynchronousWriter {
   }
 
   @Test
-  void testCloseFailPath() {
+  @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
+  void testCloseFailPath() throws InterruptedException, ExecutionException {
 
     ExecutorService executorService = Executors.newSingleThreadExecutor();
     underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
@@ -131,9 +134,9 @@ public class TestAsynchronousWriter {
     underTest.startScheduler();
 
     // submit a task that will not complete before close() timeout
-    executorService.submit(new Runnable() {
+    Callable<Void> task = new Callable<Void>() {
       @Override
-      public void run() {
+      public Void call() {
         Duration spinDuration = maxWaitDuration.plus(Duration.ofMillis(300));
         Instant end = Instant.now().plus(spinDuration);
         try {
@@ -143,11 +146,15 @@ public class TestAsynchronousWriter {
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
         }
+        return null;
       }
-    });
+    };
+
+    Future<Void> future = executorService.submit(task);
     underTest.close();
     assertTrue(executorService.isShutdown());
     assertFalse(executorService.isTerminated());
+    future.get();
   }
 
   @Test
@@ -168,23 +175,29 @@ public class TestAsynchronousWriter {
   }
 
   @Test
-  void testCloseExecutorFailPath() throws InterruptedException, BrokenBarrierException {
+  @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
+  @SuppressFBWarnings("SIC_INNER_SHOULD_BE_STATIC_ANON")
+  void testCloseExecutorFailPath()
+      throws InterruptedException, BrokenBarrierException, ExecutionException {
     ExecutorService executorService = Executors.newSingleThreadExecutor();
     CyclicBarrier barrier = new CyclicBarrier(2);
-    executorService.submit(new Runnable() {
+    Callable<Void> task = new Callable<Void>() {
       @Override
-      public void run() {
+      public Void call() {
         try {
           barrier.await();
+          return null;
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
+          return null;
         } catch (BrokenBarrierException e) {
           logTrace(LOG, Level.ERROR, e);
           throw new IllegalStateException("Unexpected exception");
         }
       }
-    });
+    };
 
+    Future<Void> future = executorService.submit(task);
     underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
         allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
     underTest.startScheduler();
@@ -195,6 +208,7 @@ public class TestAsynchronousWriter {
     assertTrue(underTest.executor.isShutdown());
     assertFalse(underTest.executor.isTerminated());
     barrier.await();
+    future.get();
   }
 
   @Test
@@ -248,7 +262,7 @@ public class TestAsynchronousWriter {
 
     Path tempDir = Files.createTempDirectory(null /* prefix */);
     filesToWrite.push(tempDir);
-    tempDir.toFile().delete();
+    assertTrue(tempDir.toFile().delete());
     String pathWithNoFile = tempDir.resolve("iDoNotExist").toString();
     customMap.put(1, pathWithNoFile);
 

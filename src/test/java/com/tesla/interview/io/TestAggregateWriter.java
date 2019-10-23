@@ -26,7 +26,9 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.base.Charsets;
 import com.tesla.interview.model.AggregateSample;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -47,8 +49,8 @@ public class TestAggregateWriter {
     File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
     try {
-      BufferedWriter writerSpy =
-          spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
+      BufferedWriter writerSpy = spy(
+          new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
       doThrow(new IOException()).when(writerSpy).close();
 
       AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
@@ -56,7 +58,7 @@ public class TestAggregateWriter {
       verify(writerSpy).close();
 
     } finally {
-      file.delete();
+      assertTrue(file.delete());
     }
   }
 
@@ -66,14 +68,14 @@ public class TestAggregateWriter {
     String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
     File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
     try {
-      BufferedWriter writerSpy =
-          spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
+      BufferedWriter writerSpy = spy(
+          new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
 
       AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
       underTest.close();
       verify(writerSpy).close();
     } finally {
-      file.delete();
+      assertTrue(file.delete());
     }
   }
 
@@ -106,7 +108,7 @@ public class TestAggregateWriter {
     final String methodName = "testWriteSucceedsWithMultipleWrites";
     String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
     File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-    file.delete();
+    assertTrue(file.delete());
 
     AggregateSampleWriter underTest = null;
     try {
@@ -116,7 +118,7 @@ public class TestAggregateWriter {
       if (underTest != null) {
         underTest.close();
       }
-      file.delete();
+      assertTrue(file.delete());
     }
   }
 
@@ -127,7 +129,7 @@ public class TestAggregateWriter {
     File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
     BufferedWriter writerSpy =
-        spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
+        spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
     doThrow(new IOException()).when(writerSpy).write(anyString());
     AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
 
@@ -138,18 +140,19 @@ public class TestAggregateWriter {
       assertTrue(e.getMessage().contains(UNEXPECTED_ERROR));
     } finally {
       underTest.close();
-      file.delete();
+      assertTrue(file.delete());
     }
   }
 
   @Test
+  @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT")
   void testWriteSucceedsWithGoodWriter() throws IOException {
     final String methodName = "testWriteSucceedsWithGoodWriter";
     String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
     File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
 
     BufferedWriter writerSpy =
-        spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
+        spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
     AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
     AggregateSample sampleMock = mock(AggregateSample.class);
 
@@ -159,17 +162,18 @@ public class TestAggregateWriter {
     verify(writerSpy).write(eq(dataToWrite));
 
     underTest.close();
-    file.delete();
+    assertTrue(file.delete());
   }
 
   @Test
+  @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT")
   void testWriteSucceedsWithMultipleWrites() throws IOException {
     final String methodName = "testWriteSucceedsWithMultipleWrites";
     String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
     File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
     try {
-      BufferedWriter writerSpy =
-          spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file))));
+      BufferedWriter writerSpy = spy(
+          new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
       AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
       AggregateSample sampleMock = mock(AggregateSample.class);
 
@@ -182,7 +186,7 @@ public class TestAggregateWriter {
 
       underTest.close();
     } finally {
-      file.delete();
+      assertTrue(file.delete());
     }
   }
 

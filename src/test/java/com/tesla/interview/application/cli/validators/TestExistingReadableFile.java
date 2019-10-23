@@ -51,7 +51,7 @@ public class TestExistingReadableFile {
     try {
       underTest.validate(PARAM_NAME, created.toString());
     } finally {
-      created.toFile().delete();
+      assertTrue(created.toFile().delete());
     }
   }
 

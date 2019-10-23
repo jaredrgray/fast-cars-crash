@@ -27,6 +27,7 @@ import com.google.common.collect.Sets;
 import com.tesla.interview.model.AggregateSample;
 import com.tesla.interview.model.IntegerHashtag;
 import com.tesla.interview.model.MeasurementSample;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,7 +40,18 @@ import org.junit.jupiter.api.Test;
 
 public class TestInteviewApplication {
 
+  private static class Pair<T> {
+    final T good;
+    final T bad;
+
+    Pair(T good, T bad) {
+      this.good = good;
+      this.bad = bad;
+    }
+  }
+  
   private static final Logger LOG = getLogger(TestInteviewApplication.class);
+
   protected final Random rand = new Random(0xdeadbeef);
 
   @Test
@@ -78,18 +90,10 @@ public class TestInteviewApplication {
       assertTrue(e.getMessage().contains("must be non-empty"));
     }
   }
-
+  
   @Test
+  @SuppressFBWarnings("IM_BAD_CHECK_FOR_ODD")
   void testConstructorFailsOnInvalidInputs() throws IOException {
-    class Pair<T> {
-      final T good;
-      final T bad;
-
-      Pair(T good, T bad) {
-        this.good = good;
-        this.bad = bad;
-      }
-    }
 
     /*
      * Individually, some of these parameters are valid. In any and all combinations, however, no
@@ -131,7 +135,7 @@ public class TestInteviewApplication {
 
     Path tempInputFile = Files.createTempFile(filePrefix, null /* suffix */);
     Path tempOutputFile = Files.createTempFile(filePrefix, null /* suffix */);
-    tempOutputFile.toFile().delete();
+    assertTrue(tempOutputFile.toFile().delete());
 
     try {
       InterviewApplication underTest = new InterviewApplication(1 /* numWriteThreads */,
@@ -139,7 +143,7 @@ public class TestInteviewApplication {
           tempInputFile.toString() /* inputFilePath */);
       assertEquals(1, underTest.partitionNumToThreadNo.size());
     } finally {
-      tempInputFile.toFile().delete();
+      assertTrue(tempInputFile.toFile().delete());
     }
   }
 
@@ -157,7 +161,7 @@ public class TestInteviewApplication {
     List<String> outputFilesAsStrings = Lists.newArrayList();
     for (Path p : tempOutputFiles) {
       outputFilesAsStrings.add(p.toString());
-      p.toFile().delete();
+      assertTrue(p.toFile().delete());
     }
 
     try {
@@ -168,7 +172,7 @@ public class TestInteviewApplication {
       assertEquals(tempOutputFiles.size(), underTest.partitionNumToThreadNo.size());
       assertEquals(numWriteThreads, underTest.threadNumToWriter.size());
     } finally {
-      tempInputFile.toFile().delete();
+      assertTrue(tempInputFile.toFile().delete());
     }
   }
 
@@ -188,7 +192,7 @@ public class TestInteviewApplication {
     List<String> outputFilesAsStrings = Lists.newArrayList();
     for (Path p : tempOutputFiles) {
       outputFilesAsStrings.add(p.toString());
-      p.toFile().delete();
+      assertTrue(p.toFile().delete());
     }
 
     try {
@@ -219,7 +223,7 @@ public class TestInteviewApplication {
       assertEquals(1, threadNumToPartitionNos.get(2).size());
 
     } finally {
-      tempInputFile.toFile().delete();
+      assertTrue(tempInputFile.toFile().delete());
     }
   }
 
