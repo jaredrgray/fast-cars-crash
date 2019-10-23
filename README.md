@@ -79,7 +79,7 @@ All other hashtags and non-hashtags at the end of an input line will be ignored.
 
 ### Field Types
 
-Our program is agnostic to the data types representing the timestamp and asset identifier.  The partition number, however, is expected always to be a natural number.
+Our program is agnostic to the data type representing the asset identifier.  The partition number is expected always to be a natural number.  A long integer shall comprise the timestamp field.
 
 
 ### Line Termination

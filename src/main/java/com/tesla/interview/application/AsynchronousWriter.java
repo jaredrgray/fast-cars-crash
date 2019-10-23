@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.tesla.interview.io.AggregateSampleWriter;
 import com.tesla.interview.model.AggregateSample;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.Closeable;
 import java.io.File;
 import java.nio.file.Paths;
@@ -42,7 +43,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import org.apache.logging.log4j.Logger;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Asynchronously writes input {@link AggregateSample}s to an output file via

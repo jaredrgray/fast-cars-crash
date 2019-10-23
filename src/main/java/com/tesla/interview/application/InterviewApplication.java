@@ -17,6 +17,7 @@ package com.tesla.interview.application;
 import static com.tesla.interview.application.ApplicationTools.logTrace;
 import static java.lang.Math.ceil;
 import static org.apache.logging.log4j.LogManager.getLogger;
+
 import com.google.common.collect.Maps;
 import com.tesla.interview.application.AsynchronousWriter.WriteTask;
 import com.tesla.interview.io.MeasurementSampleReader;

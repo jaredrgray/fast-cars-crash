@@ -15,6 +15,7 @@
 package com.tesla.interview.io;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
+
 import com.google.common.io.Files;
 import com.tesla.interview.model.MeasurementSample;
 import java.io.BufferedReader;
@@ -102,16 +103,17 @@ public class MeasurementSampleReader implements Closeable, Iterator<MeasurementS
 
   @Override
   public MeasurementSample next() {
-    if (!hasNext()) {
+    if (hasNext()) {
+      try {
+        String nextLine = reader.readLine();
+        this.lineNo++;
+        return MeasurementSample.fromString(nextLine);
+      } catch (IOException e) {
+        throw new IllegalStateException(String.format(
+            "Unexpected error while reading file -- filePath: %s, lineNo: %d", path, lineNo), e);
+      }
+    } else {
       throw new NoSuchElementException();
-    }
-    try {
-      String nextLine = reader.readLine();
-      this.lineNo++;
-      return MeasurementSample.fromString(nextLine);
-    } catch (IOException e) {
-      throw new IllegalStateException(String.format(
-          "Unexpected error while reading file -- filePath: %s, lineNo: %d", path, lineNo), e);
     }
 
   }
