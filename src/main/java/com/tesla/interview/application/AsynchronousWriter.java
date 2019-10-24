@@ -14,6 +14,7 @@
 
 package com.tesla.interview.application;
 
+import static java.lang.Math.max;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 import com.google.common.collect.Lists;
@@ -124,8 +125,9 @@ public class AsynchronousWriter implements Closeable {
    * Encapsulates a request to append an {@link AggregateSample} to an output file.
    */
   class WriteTask implements Callable<WriteTask> {
-    private AggregateSample sample;
-    private AtomicReference<Future<WriteTask>> scheduled;
+    AggregateSample sample;
+    AtomicReference<Future<WriteTask>> scheduled;
+    Thread thread;
 
     /**
      * Canonical constructor.
@@ -134,7 +136,8 @@ public class AsynchronousWriter implements Closeable {
      */
     WriteTask(AggregateSample sample) {
       this.sample = sample;
-      scheduled = new AtomicReference<Future<WriteTask>>(null /* initialValue */);
+      this.scheduled = new AtomicReference<Future<WriteTask>>(null /* initialValue */);
+      this.thread = Thread.currentThread();
     }
 
     @Override
@@ -163,7 +166,7 @@ public class AsynchronousWriter implements Closeable {
         try {
           Thread.sleep(pollDelay.toMillis());
         } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
+          // we have been deliberately awoken; good time to check again
         }
       }
       return scheduled.get();
@@ -175,18 +178,19 @@ public class AsynchronousWriter implements Closeable {
      * @param taskFuture progress indicator of task execution
      */
     void scheduledHook(Future<WriteTask> taskFuture) {
-      boolean itWorked = scheduled.compareAndSet(null, taskFuture);
-      if (!itWorked) {
+      if (scheduled.compareAndSet(null, taskFuture)) {
+        numWriteTasksScheduled.incrementAndGet();
+        thread.interrupt();
+      } else {
         throw new IllegalStateException("task scheduled more than once");
       }
-      numWriteTasksScheduled.incrementAndGet();
     }
   }
 
   private static final Duration DEFAULT_MAX_WAIT = Duration.ofSeconds(3);
   private static final Logger LOG = getLogger(AsynchronousWriter.class);
   private static final Duration PRINT_INTERVAL = Duration.ofSeconds(15);
-  private static final Duration DEFAULT_POLL_DELAY = Duration.ofMillis(50);
+  private static final Duration DEFAULT_POLL_DELAY = Duration.ofSeconds(1);
 
   final int bufferSize;
   final ExecutorService executor;
@@ -294,8 +298,8 @@ public class AsynchronousWriter implements Closeable {
         LOG.warn(
             String.format("Could not shut down executor service within %s", executorWaitDuration));
         List<Runnable> stragglers = executor.shutdownNow();
-        LOG.warn(String.format("Cancelled execution of scheduled task -- count: %d",
-            stragglers.size()));
+        LOG.warn(
+            String.format("Cancelled execution of scheduled task -- count: %d", stragglers.size()));
       } else {
         LOG.info(
             String.format("Shut down executor service successfully in %s", executorWaitDuration));
@@ -362,8 +366,9 @@ public class AsynchronousWriter implements Closeable {
     Instant endWaitTime = startWaitTime.plus(maxWaitDuration);
     while (Instant.now().isBefore(endWaitTime) && waitCondition.get()) {
       try {
-        long waitTimeInMillis = Duration.between(Instant.now(), endWaitTime).toMillis() / 2;
-        executor.awaitTermination(waitTimeInMillis, TimeUnit.MILLISECONDS);
+        long waitTimeInMillis =
+            max(Duration.between(Instant.now(), endWaitTime).toMillis() / 2, 100);
+        Thread.sleep(waitTimeInMillis);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       }

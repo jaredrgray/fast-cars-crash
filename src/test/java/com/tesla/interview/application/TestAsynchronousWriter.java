@@ -113,9 +113,9 @@ public class TestAsynchronousWriter extends InterviewTestCase {
 
     bufferQueue = Queues.newArrayDeque();
     pathToWriter = Maps.newHashMap();
-    maxWaitDuration = Duration.ofMillis(10);
+    maxWaitDuration = Duration.ofSeconds(1);
     bufferSize = 10;
-    pollDelay = Duration.ofMillis(1);
+    pollDelay = Duration.ofMillis(100);
   }
 
   @Test
