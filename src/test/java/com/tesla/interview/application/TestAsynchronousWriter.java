@@ -133,12 +133,12 @@ public class TestAsynchronousWriter extends InterviewTestCase {
       public Void call() {
         Duration spinDuration = maxWaitDuration.plus(Duration.ofMillis(300));
         Instant end = Instant.now().plus(spinDuration);
-        try {
-          while (Instant.now().isBefore(end)) {
+        while (Instant.now().isBefore(end)) {
+          try {
             Thread.sleep(spinDuration.toMillis() / 10);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
           }
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
         }
         return null;
       }
