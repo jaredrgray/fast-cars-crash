@@ -273,6 +273,8 @@ public class InterviewApplication implements Callable<Void> {
    * @param maxFileHandles max. number of file handles we should have open concurrently
    * @param outputFilePaths paths to the output samples files
    * @param inputFilePath path to the input samples file
+   * @param queueSize size of write queue
+   * @param pollDuration max. amount of time to wait between polls
    */
   public InterviewApplication(int numWriteThreads, int maxFileHandles, List<String> outputFilePaths,
       String inputFilePath, int queueSize, Duration pollDuration) {
@@ -349,6 +351,9 @@ public class InterviewApplication implements Callable<Void> {
    * @param partitionNoToThreadNo injected mapping of partitions to threads
    * @param reader injected sample reader
    * @param threadNumToWriter injected mapping of threads to writers
+   * @param taskQueue queue of write tasks
+   * @param maxQueueSize maximum queue size
+   * @param pollDuration max. time to wait between polls
    */
   InterviewApplication(//
       Map<Integer, Integer> partitionNoToThreadNo, //

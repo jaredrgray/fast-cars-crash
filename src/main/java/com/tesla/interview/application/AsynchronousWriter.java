@@ -240,12 +240,8 @@ public class AsynchronousWriter implements Closeable {
       File file = Paths.get(path).toFile();
       if (!pathToWriter.containsKey(path)) {
         AggregateSampleWriter writer = AggregateSampleWriter.fromFile(file);
-        if (writer != null) {
-          writers.add(writer);
-          pathToWriter.put(path, writer);
-        } else {
-          throw new IllegalStateException("Unable to open file -- path: " + path);
-        }
+        writers.add(writer);
+        pathToWriter.put(path, writer);
       } else {
         throw new IllegalArgumentException(
             "Cannot specify identical path more than once -- path: " + path);

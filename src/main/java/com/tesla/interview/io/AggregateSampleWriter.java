@@ -39,6 +39,7 @@ public class AggregateSampleWriter implements Closeable {
    * a constructor.
    * 
    * @param fileToWrite file to which we will write new samples
+   * @return non-<code>null</code> {@link AggregateSampleWriter}
    */
   public static AggregateSampleWriter fromFile(File fileToWrite) {
     if (fileToWrite == null) {
@@ -52,9 +53,9 @@ public class AggregateSampleWriter implements Closeable {
       BufferedWriter writer = Files.newWriter(fileToWrite, StandardCharsets.UTF_8);
       return new AggregateSampleWriter(writer, 0 /* lineNo */, fileToWrite.getPath());
     } catch (FileNotFoundException e) {
-      LOG.info(String.format("unable to open output file -- reason: %s, path: %s", "no such file",
-          fileToWrite.getPath()));
-      return null;
+      throw new IllegalStateException(
+          String.format("Unable to open output file -- reason: %s, path: %s", "no such file",
+              fileToWrite.getPath(), e));
     }
   }
 

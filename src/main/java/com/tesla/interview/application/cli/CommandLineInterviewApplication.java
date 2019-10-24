@@ -126,6 +126,7 @@ public class CommandLineInterviewApplication {
    * Primary constructor. Our main method calls this.
    * 
    * @param args command line arguments
+   * @param queueSize max. number of in-flight write requests
    */
   public CommandLineInterviewApplication(String[] args, int queueSize) {
     this(new JCommander(), args, queueSize);
@@ -135,6 +136,7 @@ public class CommandLineInterviewApplication {
    * Injection constructor for unit tests.
    * 
    * @param args command line arguments to inject
+   * @param queueSize queue size to inject
    */
   CommandLineInterviewApplication(CommandLineArgs args, int queueSize) {
     this(new JCommander(args), args, queueSize);
@@ -145,6 +147,7 @@ public class CommandLineInterviewApplication {
    * 
    * @param commander commander to inject
    * @param args parsed args to inject
+   * @param queueSize queue size to inject
    */
   CommandLineInterviewApplication(JCommander commander, CommandLineArgs args, int queueSize) {
     this.commander = commander;
@@ -158,6 +161,7 @@ public class CommandLineInterviewApplication {
    * 
    * @param commander commander to inject
    * @param args command line arguments to inject
+   * @param queueSize queue size to inject
    */
   CommandLineInterviewApplication(JCommander commander, String[] args, int queueSize) {
     this.commander = commander;

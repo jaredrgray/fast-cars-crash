@@ -18,7 +18,7 @@ import com.google.common.collect.Maps;
 import java.util.Map;
 
 /**
- * A hashtag and its associated integer value, e.g. "#six" -> six.
+ * A hashtag and its associated integer value, e.g. "#six" &gt; six.
  */
 public enum IntegerHashtag {
 

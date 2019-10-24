@@ -48,53 +48,28 @@ import org.mockito.stubbing.OngoingStubbing;
 
 class InterviewApplicationIntegrationTest extends InterviewTestCase {
 
-  protected static final Random rand = new Random(0xdeadbeef);
-  private static final int QUEUE_SIZE = 100;
-  private static final Duration POLL_DURATION = Duration.ofSeconds(1);
+  /**
+   * Tracks the order in which write tasks were added.
+   */
+  private static class AsynchronousWriterSpy extends AsynchronousWriter {
+    Queue<String> ids = new ArrayDeque<>();
 
-  @Test
-  @Tag(INTEGRATION_TEST_TAG)
-  @SuppressFBWarnings()
-  void testCallHappyIntegration(TestInfo testInfo) throws IOException {
-
-    // set test parameters
-    int numPartitions = 7;
-    int numThreads = 3;
-    int numSamples = 50;
-
-    // build maps
-    Map<Integer, Integer> partitionNumToThreadNo = Maps.newHashMap();
-    Map<Integer, List<Integer>> threadNumToPartitions = Maps.newHashMap();
-    buildMaps(numPartitions, numThreads, partitionNumToThreadNo, threadNumToPartitions);
-
-    // create reader and writers
-    String methodName = "testCallHappyIntegration";
-    MeasurementSampleReader mockReader = mock(MeasurementSampleReader.class);
-    Map<Integer, AsynchronousWriter> threadNoToWriter = Maps.newHashMap();
-    for (int threadNum = 0; threadNum < numThreads; threadNum++) {
-      threadNoToWriter.put(threadNum,
-          createWriter(testInfo, threadNumToPartitions, methodName, threadNum));
+    public AsynchronousWriterSpy(int threadPoolSize, Map<Integer, String> partitionNoToPath) {
+      super(threadPoolSize, partitionNoToPath);
     }
- 
-    // build and run the app
-    InterviewApplication underTest =
-        new InterviewApplication(partitionNumToThreadNo, mockReader, threadNoToWriter,
-            Queues.newArrayDeque(), QUEUE_SIZE, POLL_DURATION);
-    stubHasNext(numSamples, mockReader);
-    List<MeasurementSample> ordered = stubNext(numSamples, numPartitions, mockReader);
-    underTest.call();
 
-    // verify all measurements were emitted in correct order
-    for (int i = 0; i < ordered.size(); i++) {
-      MeasurementSample expectedSample = ordered.get(i);
-      int partitionNum = expectedSample.getPartitionNo() - 1; // our map is indexed from zero
-      int expectedThreadNum = partitionNumToThreadNo.get(partitionNum);
-      AsynchronousWriterSpy writer =
-          (AsynchronousWriterSpy) threadNoToWriter.get(expectedThreadNum);
-      String actualAssetId = writer.ids.poll();
-      assertEquals(expectedSample.getAssetId(), actualAssetId);
+    @Override
+    public Future<WriteTask> writeSample(AggregateSample sample) {
+      Future<WriteTask> writeSample = super.writeSample(sample);
+      ids.add(sample.getAssetId());
+      return writeSample;
     }
   }
+  
+  protected static final Random rand = new Random(0xdeadbeef);
+  
+  private static final int QUEUE_SIZE = 100;
+  private static final Duration POLL_DURATION = Duration.ofSeconds(1);
 
   /**
    * Build maps to inject for {@link InterviewApplication} construction.
@@ -150,22 +125,6 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
         new AsynchronousWriterSpy(partitionsForThread.size(), partitionNumToPath);
     writer.startScheduler();
     return writer;
-  }
-
-
-  class AsynchronousWriterSpy extends AsynchronousWriter {
-    Queue<String> ids = new ArrayDeque<>();
-
-    @Override
-    public Future<WriteTask> writeSample(AggregateSample sample) {
-      Future<WriteTask> writeSample = super.writeSample(sample);
-      ids.add(sample.getAssetId());
-      return writeSample;
-    }
-
-    public AsynchronousWriterSpy(int threadPoolSize, Map<Integer, String> partitionNoToPath) {
-      super(threadPoolSize, partitionNoToPath);
-    }
   }
 
   /**
@@ -230,5 +189,48 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
     }
     whenNext.thenThrow(new IllegalStateException("next() called too many times"));
     return created;
+  }
+
+  @Test
+  @Tag(INTEGRATION_TEST_TAG)
+  @SuppressFBWarnings()
+  void testCallHappyIntegration(TestInfo testInfo) throws IOException {
+
+    // set test parameters
+    int numPartitions = 7;
+    int numThreads = 3;
+    int numSamples = 50;
+
+    // build maps
+    Map<Integer, Integer> partitionNumToThreadNo = Maps.newHashMap();
+    Map<Integer, List<Integer>> threadNumToPartitions = Maps.newHashMap();
+    buildMaps(numPartitions, numThreads, partitionNumToThreadNo, threadNumToPartitions);
+
+    // create reader and writers
+    String methodName = "testCallHappyIntegration";
+    MeasurementSampleReader mockReader = mock(MeasurementSampleReader.class);
+    Map<Integer, AsynchronousWriter> threadNoToWriter = Maps.newHashMap();
+    for (int threadNum = 0; threadNum < numThreads; threadNum++) {
+      threadNoToWriter.put(threadNum,
+          createWriter(testInfo, threadNumToPartitions, methodName, threadNum));
+    }
+
+    // build and run the app
+    InterviewApplication underTest = new InterviewApplication(partitionNumToThreadNo, mockReader,
+        threadNoToWriter, Queues.newArrayDeque(), QUEUE_SIZE, POLL_DURATION);
+    stubHasNext(numSamples, mockReader);
+    List<MeasurementSample> ordered = stubNext(numSamples, numPartitions, mockReader);
+    underTest.call();
+
+    // verify all measurements were emitted in correct order
+    for (int i = 0; i < ordered.size(); i++) {
+      MeasurementSample expectedSample = ordered.get(i);
+      int partitionNum = expectedSample.getPartitionNo() - 1; // our map is indexed from zero
+      int expectedThreadNum = partitionNumToThreadNo.get(partitionNum);
+      AsynchronousWriterSpy writer =
+          (AsynchronousWriterSpy) threadNoToWriter.get(expectedThreadNum);
+      String actualAssetId = writer.ids.poll();
+      assertEquals(expectedSample.getAssetId(), actualAssetId);
+    }
   }
 }
