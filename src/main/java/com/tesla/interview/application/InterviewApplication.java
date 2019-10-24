@@ -168,7 +168,7 @@ public class InterviewApplication implements Callable<Void> {
       try {
         while (pendingTasks.size() == maxNumTasks) {
           try {
-            queueHasRoom.await();
+            queueHasRoom.await(pollDuration.toMillis(), TimeUnit.MILLISECONDS);
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
           }
@@ -250,15 +250,14 @@ public class InterviewApplication implements Callable<Void> {
   }
 
   private final Lock taskLock = new ReentrantLock();
-
   private final Condition sampleAvailable = taskLock.newCondition();
   private final Condition queueHasRoom = taskLock.newCondition();
   private final AtomicBoolean readComplete = new AtomicBoolean(false /* initialValue */);
   private final TaskConsumer consumer = new TaskConsumer();
   private final TaskProducer producer = new TaskProducer();
   private final ExecutorService executor = Executors.newFixedThreadPool(2 /* nThreads */);
+  
   final Map<Integer, Integer> partitionNumToThreadNo; // note: partitions indexed from 0
-
   final MeasurementSampleReader reader;
   final int maxNumTasks;
   final Map<Integer, AsynchronousWriter> threadNumToWriter;

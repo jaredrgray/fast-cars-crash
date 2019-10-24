@@ -41,8 +41,8 @@ import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Future;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.mockito.stubbing.OngoingStubbing;
 
@@ -66,7 +66,7 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
     }
   }
   
-  private static final Random rand = new Random(0xdeadbeef);
+  private static final Random RAND = new Random(0xdeadbeef);
   private static final int QUEUE_SIZE = 100;
   private static final Duration POLL_DURATION = Duration.ofSeconds(1);
 
@@ -136,7 +136,7 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
     Set<IntegerHashtag> tags = Sets.newHashSet();
     IntegerHashtag[] values = IntegerHashtag.values();
     for (IntegerHashtag tag : values) {
-      if (rand.nextInt() % values.length == 0) {
+      if (RAND.nextInt() % values.length == 0) {
         tags.add(tag);
       }
     }
@@ -179,9 +179,9 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
     List<MeasurementSample> created = Lists.newArrayList();
     for (int i = 0; i < numSamples; i++) {
       MeasurementSample rando = new MeasurementSample(// praise be the formatter
-          rand.nextLong(), // timestamp
-          1 + floorMod(rand.nextInt(), numPartitions), // partitionNum (note: indexed from one)
-          String.valueOf(rand.nextLong()), // id
+          RAND.nextLong(), // timestamp
+          1 + floorMod(RAND.nextInt(), numPartitions), // partitionNum (note: indexed from one)
+          String.valueOf(RAND.nextLong()), // id
           randoHashtags()); // hashtags
       whenNext = whenNext.thenReturn(rando);
       created.add(rando);
@@ -190,7 +190,7 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
     return created;
   }
 
-  @Test
+  @RepeatedTest(10)
   @Tag(INTEGRATION_TEST_TAG)
   @SuppressFBWarnings()
   void testCallHappyIntegration(TestInfo testInfo) throws IOException {
