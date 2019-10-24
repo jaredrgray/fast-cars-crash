@@ -179,6 +179,16 @@ public class AsynchronousWriter implements Closeable {
   private static final Duration PRINT_INTERVAL = Duration.ofSeconds(10);
   private static final Duration DEFAULT_POLL_DELAY = Duration.ofSeconds(1);
   private static final Random RANDOM = new Random();
+  
+  final WriteScheduler scheduler = new WriteScheduler();
+  final List<AggregateSampleWriter> writers;
+  final Lock bufferLock = new ReentrantLock();
+  final Queue<WriteTask> bufferedWrites;
+  final Condition bufferHasRoom = bufferLock.newCondition();
+  final Condition bufferHasTask = bufferLock.newCondition();
+  final AtomicBoolean isClosed = new AtomicBoolean(false);
+  final AtomicInteger numWriteTasksCompleted = new AtomicInteger(0);
+  final AtomicInteger numWriteTasksScheduled = new AtomicInteger(0);
 
   final int bufferSize;
   final ExecutorService executor;
@@ -186,16 +196,6 @@ public class AsynchronousWriter implements Closeable {
   final Map<Integer, String> partitionNumToPath;
   final Map<String, AggregateSampleWriter> pathToWriter;
   final Duration pollDelay;
-  final WriteScheduler scheduler = new WriteScheduler();
-  final List<AggregateSampleWriter> writers;
-  final Lock bufferLock = new ReentrantLock();
-  final Queue<WriteTask> bufferedWrites;
-
-  final Condition bufferHasRoom = bufferLock.newCondition();
-  final Condition bufferHasTask = bufferLock.newCondition();
-  final AtomicBoolean isClosed = new AtomicBoolean(false);
-  final AtomicInteger numWriteTasksCompleted = new AtomicInteger(0);
-  final AtomicInteger numWriteTasksScheduled = new AtomicInteger(0);
 
   /**
    * Canonical constructor.
