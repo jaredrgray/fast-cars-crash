@@ -20,13 +20,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.beust.jcommander.ParameterException;
+import com.tesla.interview.tests.InterviewTestCase;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
-public class TestExistingReadableFile {
+public class TestExistingReadableFile extends InterviewTestCase {
 
   private static final String MUST_BE_AN_EXISTING = "must be an existing";
   private static final String PARAM_NAME = "parameterName";
@@ -43,16 +44,10 @@ public class TestExistingReadableFile {
   }
 
   @Test
-  public void testExistingFileSucceeds() throws IOException {
-    String methodName = "testExistingFileSucceeds";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    Path created = Files.createTempFile(filePrefix, null /* suffix */);
+  public void testExistingFileSucceeds(TestInfo testInfo) throws IOException {
+    Path created = createTempFile(testInfo);
     ExistingReadableFile underTest = new ExistingReadableFile();
-    try {
-      underTest.validate(PARAM_NAME, created.toString());
-    } finally {
-      assertTrue(created.toFile().delete());
-    }
+    underTest.validate(PARAM_NAME, created.toString());
   }
 
   @Test

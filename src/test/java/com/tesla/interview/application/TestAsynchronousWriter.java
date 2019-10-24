@@ -32,19 +32,19 @@ import com.google.common.collect.Queues;
 import com.tesla.interview.application.AsynchronousWriter.WriteTask;
 import com.tesla.interview.io.AggregateSampleWriter;
 import com.tesla.interview.model.AggregateSample;
+import com.tesla.interview.tests.InterviewTestCase;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Stack;
 import java.util.UUID;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.Callable;
@@ -58,14 +58,15 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
-public class TestAsynchronousWriter {
+public class TestAsynchronousWriter extends InterviewTestCase {
 
   private static final String CANNOT_BE_EMPTY = "cannot be empty";
   private static final String MUST_BE_POSITIVE = "must be positive";
   private static final Logger LOG = getLogger(TestAsynchronousWriter.class);
 
-  private Stack<Path> filesToWrite;
+  private Collection<Path> filesToWrite;
   private Map<Integer, String> partitionNumToPath;
   private AsynchronousWriter underTest;
   private Map<String, AggregateSampleWriter> pathToWriter;
@@ -90,20 +91,13 @@ public class TestAsynchronousWriter {
     if (underTest != null) {
       underTest.close();
     }
-
-    while (!filesToWrite.empty()) {
-      File createdFile = filesToWrite.pop().toFile();
-      if (createdFile.exists()) {
-        assertTrue(createdFile.delete());
-      }
-    }
   }
 
   @BeforeEach
-  void beforeEach() throws IOException {
-    filesToWrite = new Stack<>();
+  void beforeEach(TestInfo testInfo) throws IOException {
+    filesToWrite = Lists.newArrayList();
     for (int i = 0; i < 10; i++) {
-      File createdFile = File.createTempFile(getClass().getName(), null /* suffix */);
+      File createdFile = createTempFile(testInfo).toFile();
       assertTrue(createdFile.delete());
       filesToWrite.add(Paths.get(createdFile.getPath()));
     }
@@ -256,12 +250,12 @@ public class TestAsynchronousWriter {
   }
 
   @Test
-  void testConstructorWithMissingFileFails() throws IOException {
+  void testConstructorWithMissingFileFails(TestInfo testInfo) throws IOException {
     Map<Integer, String> customMap = Maps.newHashMap();
     customMap.putAll(partitionNumToPath);
 
-    Path tempDir = Files.createTempDirectory(null /* prefix */);
-    filesToWrite.push(tempDir);
+    Path tempDir = createTempDir(testInfo);
+    filesToWrite.add(tempDir);
     assertTrue(tempDir.toFile().delete());
     String pathWithNoFile = tempDir.resolve("iDoNotExist").toString();
     customMap.put(1, pathWithNoFile);

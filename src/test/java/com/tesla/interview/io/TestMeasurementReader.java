@@ -30,65 +30,49 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.tesla.interview.model.IntegerHashtag;
 import com.tesla.interview.model.MeasurementSample;
+import com.tesla.interview.tests.InterviewTestCase;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
-public class TestMeasurementReader {
+public class TestMeasurementReader extends InterviewTestCase {
 
   private static final String UNEXPECTED_ERROR_WHILE_READING = "Unexpected error while reading";
 
   @Test
-  void testCloseWhenSuccessful() throws IOException {
-    String methodName = "testCloseWhenSuccessful";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-
+  void testCloseWhenSuccessful(TestInfo testInfo) throws IOException {
+    File sampleFile = createTempFile(testInfo).toFile();
     BufferedReader reader =
         new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);
-    try {
-      MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
-      underTest.close();
-      verify(readerSpy).close();
-    } finally {
-      assertTrue(sampleFile.delete());
-    }
+    MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
+    underTest.close();
+    verify(readerSpy).close();
   }
 
   @Test
-  void testCloseWhenUnsuccessful() throws IOException {
-    String methodName = "testCloseWhenUnsuccessful";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-
+  void testCloseWhenUnsuccessful(TestInfo testInfo) throws IOException {
+    File sampleFile = createTempFile(testInfo).toFile();
     BufferedReader reader =
         new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);
     doThrow(new IOException()).when(readerSpy).close();
 
-    try {
-      MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
-      underTest.close();
-      verify(readerSpy).close();
-    } finally {
-      assertTrue(sampleFile.delete());
-    }
+    MeasurementSampleReader underTest = MeasurementSampleReader.withMockedReader(readerSpy);
+    underTest.close();
+    verify(readerSpy).close();
   }
 
   @Test
-  void testConstructorFailsWhenFileIsActuallyDirectory() throws IOException {
-    String methodName = "testConstructorFailsWhenFileIsActuallyDirectory";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    File sampleFile = Files.createTempDirectory(filePrefix).toFile();
-
+  void testConstructorFailsWhenFileIsActuallyDirectory(TestInfo testInfo) throws IOException {
+    File sampleFile = createTempDir(testInfo).toFile();
     MeasurementSampleReader underTest = null;
     try {
       underTest = new MeasurementSampleReader(sampleFile);
@@ -99,7 +83,6 @@ public class TestMeasurementReader {
       if (underTest != null) {
         underTest.close();
       }
-      assertTrue(sampleFile.delete());
     }
   }
 
@@ -119,11 +102,8 @@ public class TestMeasurementReader {
   }
 
   @Test
-  void testConstructorSucceedsWithExistingFile() throws IOException {
-    String methodName = "testConstructorSucceedsWithExistingFile";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-
+  void testConstructorSucceedsWithExistingFile(TestInfo testInfo) throws IOException {
+    File sampleFile = createTempFile(testInfo).toFile();
     MeasurementSampleReader underTest = null;
     try {
       underTest = new MeasurementSampleReader(sampleFile);
@@ -131,16 +111,12 @@ public class TestMeasurementReader {
       if (underTest != null) {
         underTest.close();
       }
-      assertTrue(sampleFile.delete());
     }
   }
 
   @Test
-  void testFailureWhenHasNextThrows() throws IOException {
-    String methodName = "testFailureWhenHasNextThrows";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-
+  void testFailureWhenHasNextThrows(TestInfo testInfo) throws IOException {
+    File sampleFile = createTempFile(testInfo).toFile();
     BufferedReader reader =
         new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);
@@ -154,16 +130,12 @@ public class TestMeasurementReader {
       assertTrue(e.getMessage().contains(UNEXPECTED_ERROR_WHILE_READING));
     } finally {
       underTest.close();
-      assertTrue(sampleFile.delete());
     }
   }
 
   @Test
-  void testFailureWhenNextThrows() throws IOException {
-    String methodName = "testFailureWhenNextThrows";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-
+  void testFailureWhenNextThrows(TestInfo testInfo) throws IOException {
+    File sampleFile = createTempFile(testInfo).toFile();
     BufferedReader reader =
         new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);
@@ -178,17 +150,13 @@ public class TestMeasurementReader {
       assertTrue(e.getMessage().contains(UNEXPECTED_ERROR_WHILE_READING));
     } finally {
       underTest.close();
-      assertTrue(sampleFile.delete());
     }
   }
 
 
   @Test
-  void testReadsOneLine() throws IOException {
-    String methodName = "testReadsOneLine";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-
+  void testReadsOneLine(TestInfo testInfo) throws IOException {
+    File sampleFile = createTempFile(testInfo).toFile();
     BufferedReader reader =
         new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);
@@ -217,11 +185,8 @@ public class TestMeasurementReader {
   }
 
   @Test
-  void testReadsTenLines() throws IOException {
-    String methodName = "testReadsTenLines";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    File sampleFile = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-
+  void testReadsTenLines(TestInfo testInfo) throws IOException {
+    File sampleFile = createTempFile(testInfo).toFile();
     BufferedReader reader =
         new BufferedReader(new InputStreamReader(new FileInputStream(sampleFile), Charsets.UTF_8));
     BufferedReader readerSpy = spy(reader);

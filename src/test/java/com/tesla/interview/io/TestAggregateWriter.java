@@ -28,55 +28,42 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.base.Charsets;
 import com.tesla.interview.model.AggregateSample;
+import com.tesla.interview.tests.InterviewTestCase;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
-public class TestAggregateWriter {
+public class TestAggregateWriter extends InterviewTestCase {
 
   private static final String MUST_BE_A_NEW = "must be a new";
   private static final String UNEXPECTED_ERROR = "Unexpected error";
 
   @Test
-  void testCloseAttemptsWithBadWriter() throws IOException {
-    final String methodName = "testCloseFailsWithBadWriter";
-    String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
-    File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+  void testCloseAttemptsWithBadWriter(TestInfo testInfo) throws IOException {
+    File file = createTempFile(testInfo).toFile();
+    BufferedWriter writerSpy =
+        spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
+    doThrow(new IOException()).when(writerSpy).close();
 
-    try {
-      BufferedWriter writerSpy = spy(
-          new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
-      doThrow(new IOException()).when(writerSpy).close();
-
-      AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
-      underTest.close();
-      verify(writerSpy).close();
-
-    } finally {
-      assertTrue(file.delete());
-    }
+    AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
+    underTest.close();
+    verify(writerSpy).close();
   }
 
   @Test
-  void testCloseAttemptsWithGoodWriter() throws IOException {
-    final String methodName = "testCloseFailsWithBadWriter";
-    String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
-    File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-    try {
-      BufferedWriter writerSpy = spy(
-          new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
+  void testCloseAttemptsWithGoodWriter(TestInfo testInfo) throws IOException {
+    File file = createTempFile(testInfo).toFile();
+    BufferedWriter writerSpy =
+        spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
 
-      AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
-      underTest.close();
-      verify(writerSpy).close();
-    } finally {
-      assertTrue(file.delete());
-    }
+    AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
+    underTest.close();
+    verify(writerSpy).close();
   }
 
   @Test
@@ -104,10 +91,8 @@ public class TestAggregateWriter {
   }
 
   @Test
-  void testFromFileSucceedsWithNewFile() throws IOException {
-    final String methodName = "testWriteSucceedsWithMultipleWrites";
-    String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
-    File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+  void testFromFileSucceedsWithNewFile(TestInfo testInfo) throws IOException {
+    File file = createTempFile(testInfo).toFile();
     assertTrue(file.delete());
 
     AggregateSampleWriter underTest = null;
@@ -123,10 +108,8 @@ public class TestAggregateWriter {
   }
 
   @Test
-  void testWriteFailsWithBadWriter() throws IOException {
-    final String methodName = "testConstructorFailsWithGoofyFile";
-    String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
-    File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+  void testWriteFailsWithBadWriter(TestInfo testInfo) throws IOException {
+    File file = createTempFile(testInfo).toFile();
 
     BufferedWriter writerSpy =
         spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
@@ -140,17 +123,13 @@ public class TestAggregateWriter {
       assertTrue(e.getMessage().contains(UNEXPECTED_ERROR));
     } finally {
       underTest.close();
-      assertTrue(file.delete());
     }
   }
 
   @Test
   @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT")
-  void testWriteSucceedsWithGoodWriter() throws IOException {
-    final String methodName = "testWriteSucceedsWithGoodWriter";
-    String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
-    File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
-
+  void testWriteSucceedsWithGoodWriter(TestInfo testInfo) throws IOException {
+    File file = createTempFile(testInfo).toFile();
     BufferedWriter writerSpy =
         spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
     AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
@@ -160,17 +139,13 @@ public class TestAggregateWriter {
     doReturn(dataToWrite).when(sampleMock).toString();
     underTest.writeSample(sampleMock);
     verify(writerSpy).write(eq(dataToWrite));
-
     underTest.close();
-    assertTrue(file.delete());
   }
 
   @Test
   @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT")
-  void testWriteSucceedsWithMultipleWrites() throws IOException {
-    final String methodName = "testWriteSucceedsWithMultipleWrites";
-    String filePrefix = String.format("%s_%s", getClass().getCanonicalName(), methodName);
-    File file = Files.createTempFile(filePrefix, null /* suffix */).toFile();
+  void testWriteSucceedsWithMultipleWrites(TestInfo testInfo) throws IOException {
+    File file = createTempFile(testInfo).toFile();
     try {
       BufferedWriter writerSpy = spy(
           new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));

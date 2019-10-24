@@ -30,6 +30,7 @@ import static org.mockito.Mockito.verify;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import com.tesla.interview.application.InterviewApplication;
+import com.tesla.interview.tests.InterviewTestCase;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -39,9 +40,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
 
-public class TestCommandLineApplication {
+public class TestCommandLineApplication extends InterviewTestCase {
 
   private static class FileDeletor implements FileVisitor<Path> {
     @Override
@@ -103,31 +105,19 @@ public class TestCommandLineApplication {
   private static final String CSV_EXTENSION = ".csv";
 
   @Test
-  void testConstructorWorksWithValidCliArgs() throws IOException {
-    String methodName = "testConstructorWorksWithValidCliArgs";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-
-    Path validDir = Files.createTempDirectory(filePrefix);;
-    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);;
-
+  void testConstructorWorksWithValidCliArgs(TestInfo testInfo) throws IOException {
+    Path validDir = createTempDir(testInfo);
+    Path validFile = createTempFile(testInfo);
     CommandLineArgs args = new CommandLineArgs();
     args.inputFile = validFile.toString();
     args.outputDirectory = validDir.toString();
-    try {
-      new MockedCliApp(args);
-    } finally {
-      assertTrue(validDir.toFile().delete());
-      assertTrue(validFile.toFile().delete());
-    }
+    new MockedCliApp(args);
   }
 
   @Test
-  void testExecuteWrapperDoesNotPrintUsageUponException() throws IOException {
-    String methodName = "testExecuteWrapperDoesNotPrintUsageUponException";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-
-    Path validDir = Files.createTempDirectory(filePrefix);;
-    Path invalidFile = Files.createTempFile(filePrefix, null /* suffix */);
+  void testExecuteWrapperDoesNotPrintUsageUponException(TestInfo testInfo) throws IOException {
+    Path validDir = createTempDir(testInfo);
+    Path invalidFile = createTempFile(testInfo);
     assertTrue(invalidFile.toFile().delete());
 
     CommandLineArgs args = new CommandLineArgs();
@@ -147,18 +137,13 @@ public class TestCommandLineApplication {
       fail("expected NullPointerException");
     } catch (NullPointerException e) {
       verify(spyCommander, never()).usage();
-    } finally {
-      assertTrue(validDir.toFile().delete());
     }
   }
 
   @Test
-  void testExecuteWrapperPrintsUsageUponInvalidArgument() throws IOException {
-    String methodName = "testExecuteWrapperPrintsUsageUponInvalidArgument";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-
-    Path validDir = Files.createTempDirectory(filePrefix);;
-    Path invalidFile = Files.createTempFile(filePrefix, null /* suffix */);
+  void testExecuteWrapperPrintsUsageUponInvalidArgument(TestInfo testInfo) throws IOException {
+    Path validDir = createTempDir(testInfo);
+    Path invalidFile = createTempFile(testInfo);
     assertTrue(invalidFile.toFile().delete());
 
     CommandLineArgs args = new CommandLineArgs();
@@ -172,57 +157,35 @@ public class TestCommandLineApplication {
     MockedCliApp appSpy = spy(new MockedCliApp(mockCommander, args));
     doThrow(new ParameterException("POOP")).when(appSpy).parseArgs();
 
-    try {
-      executeWrapper(appSpy);
-      verify(mockCommander).usage();
-    } finally {
-      assertTrue(validDir.toFile().delete());
+    executeWrapper(appSpy);
+    verify(mockCommander).usage();
+  }
+
+  @Test
+  void testGetOutputFilesSingle(TestInfo testInfo) throws IOException {
+    Path tempDir = createTempDir(testInfo);
+    List<String> filePaths = getOutputFiles(1 /* numPartitions */, tempDir);
+    assertEquals(1, filePaths.size());
+    assertTrue(filePaths.get(0).contains(testInfo.getTestMethod().get().getName()));
+    assertTrue(filePaths.get(0).endsWith(1 + CSV_EXTENSION));
+  }
+
+  @Test
+  void testGetTenOutputFiles(TestInfo testInfo) throws IOException {
+    Path tempDir = createTempDir(testInfo);
+    List<String> filePaths = getOutputFiles(10 /* numPartitions */, tempDir);
+    assertEquals(10, filePaths.size());
+    for (int i = 0; i < filePaths.size(); i++) {
+      assertTrue(filePaths.get(i).contains(testInfo.getTestMethod().get().getName()));
+      assertTrue(filePaths.get(i).endsWith((i + 1) + CSV_EXTENSION));
     }
   }
 
   @Test
-  void testGetOutputFilesSingle() throws IOException {
-    String methodName = "testGetOutputFilesSingle";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    Path tempDir = Files.createTempDirectory(filePrefix);
-    try {
-      List<String> filePaths = getOutputFiles(1 /* numPartitions */, tempDir);
-      assertEquals(1, filePaths.size());
-      assertTrue(filePaths.get(0).contains(filePrefix));
-      assertTrue(filePaths.get(0).endsWith(1 + CSV_EXTENSION));
-    } finally {
-      assertTrue(tempDir.toFile().delete());
-    }
-  }
-
-  @Test
-  void testGetTenOutputFiles() throws IOException {
-    String methodName = "testGetTenOutputFiles";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    Path tempDir = Files.createTempDirectory(filePrefix);
-    try {
-      List<String> filePaths = getOutputFiles(10 /* numPartitions */, tempDir);
-      assertEquals(10, filePaths.size());
-      for (int i = 0; i < filePaths.size(); i++) {
-        assertTrue(filePaths.get(i).contains(filePrefix));
-        assertTrue(filePaths.get(i).endsWith((i + 1) + CSV_EXTENSION));
-      }
-    } finally {
-      assertTrue(tempDir.toFile().delete());
-    }
-  }
-
-  @Test
-  void testGetZeroOutputFiles() throws IOException {
-    String methodName = "testGetZeroOutputFiles";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-    Path tempDir = Files.createTempDirectory(filePrefix);
-    try {
-      List<String> filePaths = getOutputFiles(0 /* numPartitions */, tempDir);
-      assertEquals(0, filePaths.size());
-    } finally {
-      assertTrue(tempDir.toFile().delete());
-    }
+  void testGetZeroOutputFiles(TestInfo testInfo) throws IOException {
+    Path tempDir = createTempDir(testInfo);
+    List<String> filePaths = getOutputFiles(0 /* numPartitions */, tempDir);
+    assertEquals(0, filePaths.size());
   }
 
   @Test
@@ -240,51 +203,37 @@ public class TestCommandLineApplication {
   }
 
   @Test
-  void testMainExecutesSuccessfullyWithValidArguments() throws IOException {
-    String methodName = "testMainExecutesSuccessfullyWithValidArguments";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-
-    Path validDir = Files.createTempDirectory(filePrefix);
-    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
+  void testMainExecutesSuccessfullyWithValidArguments(TestInfo testInfo) throws IOException {
+    Path validDir = createTempDir(testInfo);
+    Path validFile = createTempFile(testInfo);
     try {
       main(new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w",
           "1"});
     } finally {
-      assertTrue(validFile.toFile().delete());
       Files.walkFileTree(validDir, new FileDeletor());
-      assertTrue(validDir.toFile().delete());
     }
   }
 
   @Test
-  void testMainWorksWithValidRawArgs() throws IOException {
-    String methodName = "testConstructorWorksWithValidRawArgs";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-
-    Path validDir = Files.createTempDirectory(filePrefix);;
-    Path validFile = Files.createTempFile(filePrefix, null /* suffix */);
-
+  void testMainWorksWithValidRawArgs(TestInfo testInfo) throws IOException {
+    Path validDir = createTempDir(testInfo);
+    Path validFile = createTempFile(testInfo);
     try {
       main(new String[] {"-i", validFile.toString(), "-o", validDir.toString(), "-p", "1", "-w",
           "1"});
     } finally {
-      assertTrue(validFile.toFile().delete());
       Files.walkFileTree(validDir, new FileDeletor());
-      assertTrue(validDir.toFile().delete());
     }
   }
 
   @Test
-  void testValidateNullArgsFail() throws IOException {
-    String methodName = "testConstructorNullArgsFail";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-
+  void testValidateNullArgsFail(TestInfo testInfo) throws IOException {
     for (int i = 0; i + 1 < 1 << 2; i++) {
       Path validDir = null;
       Path validFile = null;
       try {
-        validDir = Files.createTempDirectory(filePrefix);
-        validFile = Files.createTempFile(filePrefix, null /* suffix */);
+        validDir = createTempDir(testInfo);
+        validFile = createTempFile(testInfo);
 
         // interpret i as a bitmask, where 0 indicates null
         CommandLineArgs args = new CommandLineArgs();
@@ -292,8 +241,9 @@ public class TestCommandLineApplication {
         args.outputDirectory = ((i >> 1) % 2) == 0 ? null : validDir.toString();
 
         // keep some code here to help a future programmer debug the bitmask
-        LOG.info(String.format("%s: %02d -- inputFileNull: %s, outputDirectoryNull: %s", methodName,
-            i, args.inputFile == null, args.outputDirectory == null));
+        LOG.info(String.format("%s: %02d -- inputFileNull: %s, outputDirectoryNull: %s",
+            testInfo.getTestMethod().get().getName(), i, args.inputFile == null,
+            args.outputDirectory == null));
 
         MockedCliApp underTest = new MockedCliApp(args);
         underTest.validateArgs();

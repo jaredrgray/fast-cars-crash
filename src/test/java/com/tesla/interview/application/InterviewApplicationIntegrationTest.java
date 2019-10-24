@@ -30,68 +30,63 @@ import com.tesla.interview.model.IntegerHashtag;
 import com.tesla.interview.model.MeasurementSample;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Future;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.mockito.stubbing.OngoingStubbing;
 
 class InterviewApplicationIntegrationTest extends TestInteviewApplication {
 
+  protected final Random rand = new Random(0xdeadbeef);
+
   @Test
   @Tag(INTEGRATION_TEST_TAG)
   @SuppressFBWarnings()
-  void testCallHappyIntegration() throws IOException {
+  void testCallHappyIntegration(TestInfo testInfo) throws IOException {
+
     // set test parameters
-    List<Path> filesCreated = Lists.newArrayList();
     int numPartitions = 7;
     int numThreads = 3;
     int numSamples = 50;
 
-    try {
+    // build maps
+    Map<Integer, Integer> partitionNumToThreadNo = Maps.newHashMap();
+    Map<Integer, List<Integer>> threadNumToPartitions = Maps.newHashMap();
+    buildMaps(numPartitions, numThreads, partitionNumToThreadNo, threadNumToPartitions);
 
-      // build maps
-      Map<Integer, Integer> partitionNumToThreadNo = Maps.newHashMap();
-      Map<Integer, List<Integer>> threadNumToPartitions = Maps.newHashMap();
-      buildMaps(numPartitions, numThreads, partitionNumToThreadNo, threadNumToPartitions);
+    // create reader and writers
+    String methodName = "testCallHappyIntegration";
+    MeasurementSampleReader mockReader = mock(MeasurementSampleReader.class);
+    Map<Integer, AsynchronousWriter> threadNoToWriter = Maps.newHashMap();
+    for (int threadNum = 0; threadNum < numThreads; threadNum++) {
+      threadNoToWriter.put(threadNum,
+          createWriter(testInfo, threadNumToPartitions, methodName, threadNum));
+    }
 
-      // create reader and writers
-      String methodName = "testCallHappyIntegration";
-      MeasurementSampleReader mockReader = mock(MeasurementSampleReader.class);
-      Map<Integer, AsynchronousWriter> threadNoToWriter = Maps.newHashMap();
-      for (int threadNum = 0; threadNum < numThreads; threadNum++) {
-        threadNoToWriter.put(threadNum,
-            createWriter(filesCreated, threadNumToPartitions, methodName, threadNum));
-      }
+    // build and run the app
+    InterviewApplication underTest =
+        new InterviewApplication(partitionNumToThreadNo, mockReader, threadNoToWriter);
+    stubHasNext(numSamples, mockReader);
+    List<MeasurementSample> ordered = stubNext(numSamples, numPartitions, mockReader);
+    underTest.call();
 
-      // build and run the app
-      InterviewApplication underTest =
-          new InterviewApplication(partitionNumToThreadNo, mockReader, threadNoToWriter);
-      stubHasNext(numSamples, mockReader);
-      List<MeasurementSample> ordered = stubNext(numSamples, numPartitions, mockReader);
-      underTest.call();
-
-      // verify all measurements were emitted in correct order
-      for (int i = 0; i < ordered.size(); i++) {
-        MeasurementSample expectedSample = ordered.get(i);
-        int partitionNum = expectedSample.getPartitionNo() - 1; // our map is indexed from zero
-        int expectedThreadNum = partitionNumToThreadNo.get(partitionNum);
-        AsynchronousWriterSpy writer =
-            (AsynchronousWriterSpy) threadNoToWriter.get(expectedThreadNum);
-        String actualAssetId = writer.ids.poll();
-        assertEquals(expectedSample.getAssetId(), actualAssetId);
-      }
-
-    } finally {
-      for (Path p : filesCreated) {
-        assertTrue(p.toFile().delete());
-      }
+    // verify all measurements were emitted in correct order
+    for (int i = 0; i < ordered.size(); i++) {
+      MeasurementSample expectedSample = ordered.get(i);
+      int partitionNum = expectedSample.getPartitionNo() - 1; // our map is indexed from zero
+      int expectedThreadNum = partitionNumToThreadNo.get(partitionNum);
+      AsynchronousWriterSpy writer =
+          (AsynchronousWriterSpy) threadNoToWriter.get(expectedThreadNum);
+      String actualAssetId = writer.ids.poll();
+      assertEquals(expectedSample.getAssetId(), actualAssetId);
     }
   }
 
@@ -125,7 +120,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
    * Create a new {@link AsynchronousWriter} to inject for {@link InterviewApplication}
    * construction.
    * 
-   * @param filesCreated list of files to be cleaned up post-test
+   * @param testInfo test metadata
    * @param threadNumToPartitions map of thread number to list of partitions
    * @param methodName name of calling method (for logging)
    * @param threadNum current thread number
@@ -133,7 +128,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
    * @throws IOException if temporary file cannot be created
    */
   private AsynchronousWriterSpy createWriter(//
-      List<Path> filesCreated, //
+      TestInfo testInfo, //
       Map<Integer, List<Integer>> threadNumToPartitions, //
       String methodName, //
       int threadNum) throws IOException {
@@ -141,9 +136,7 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
     List<Integer> partitionsForThread = threadNumToPartitions.get(threadNum);
     Map<Integer, String> partitionNumToPath = Maps.newHashMap();
     for (int partitionNum : partitionsForThread) {
-      String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-      Path newFile = Files.createTempFile(filePrefix/* prefix */, null /* suffix */);
-      filesCreated.add(newFile);
+      Path newFile = createTempFile(testInfo);
       assertTrue(newFile.toFile().delete());
       partitionNumToPath.put(partitionNum, newFile.toString());
     }

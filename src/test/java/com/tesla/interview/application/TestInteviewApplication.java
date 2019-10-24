@@ -27,18 +27,18 @@ import com.google.common.collect.Sets;
 import com.tesla.interview.model.AggregateSample;
 import com.tesla.interview.model.IntegerHashtag;
 import com.tesla.interview.model.MeasurementSample;
+import com.tesla.interview.tests.InterviewTestCase;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
-public class TestInteviewApplication {
+public class TestInteviewApplication extends InterviewTestCase {
 
   private static class Pair<T> {
     final T good;
@@ -49,10 +49,8 @@ public class TestInteviewApplication {
       this.bad = bad;
     }
   }
-  
-  private static final Logger LOG = getLogger(TestInteviewApplication.class);
 
-  protected final Random rand = new Random(0xdeadbeef);
+  private static final Logger LOG = getLogger(TestInteviewApplication.class);
 
   @Test
   void testAggregateMeasurementNegative() {
@@ -90,7 +88,7 @@ public class TestInteviewApplication {
       assertTrue(e.getMessage().contains("must be non-empty"));
     }
   }
-  
+
   @Test
   @SuppressFBWarnings("IM_BAD_CHECK_FOR_ODD")
   void testConstructorFailsOnInvalidInputs() throws IOException {
@@ -129,34 +127,43 @@ public class TestInteviewApplication {
   }
 
   @Test
-  void testConstructorHappyOnePartition() throws IOException {
-    String methodName = "testConstructorHappyOnePartition";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-
-    Path tempInputFile = Files.createTempFile(filePrefix, null /* suffix */);
-    Path tempOutputFile = Files.createTempFile(filePrefix, null /* suffix */);
+  void testConstructorHappyOnePartition(TestInfo testInfo) throws IOException {
+    Path tempInputFile = createTempFile(testInfo);
+    Path tempOutputFile = createTempFile(testInfo);
     assertTrue(tempOutputFile.toFile().delete());
 
-    try {
-      InterviewApplication underTest = new InterviewApplication(1 /* numWriteThreads */,
-          1 /* maxFileHandles */, Lists.newArrayList(tempOutputFile.toString()),
-          tempInputFile.toString() /* inputFilePath */);
-      assertEquals(1, underTest.partitionNumToThreadNo.size());
-    } finally {
-      assertTrue(tempInputFile.toFile().delete());
-    }
+    InterviewApplication underTest = new InterviewApplication(1 /* numWriteThreads */,
+        1 /* maxFileHandles */, Lists.newArrayList(tempOutputFile.toString()),
+        tempInputFile.toString() /* inputFilePath */);
+    assertEquals(1, underTest.partitionNumToThreadNo.size());
   }
 
   @Test
-  void testConstructorHappyThreePartitions() throws IOException {
-    String methodName = "testConstructorHappyThreePartitions";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
+  void testConstructorHappyThreePartitions(TestInfo testInfo) throws IOException {
+    Path tempInputFile = createTempFile(testInfo);
+    List<Path> tempOutputFiles = Lists.newArrayList(createTempFile(testInfo),
+        createTempFile(testInfo), createTempFile(testInfo));
 
-    Path tempInputFile = Files.createTempFile(filePrefix, null /* suffix */);
-    List<Path> tempOutputFiles = Lists.newArrayList(//
-        Files.createTempFile(filePrefix, null /* suffix */),
-        Files.createTempFile(filePrefix, null /* suffix */),
-        Files.createTempFile(filePrefix, null /* suffix */));
+    List<String> outputFilesAsStrings = Lists.newArrayList();
+    for (Path p : tempOutputFiles) {
+      outputFilesAsStrings.add(p.toString());
+      assertTrue(p.toFile().delete());
+    }
+    int numWriteThreads = 1;
+    InterviewApplication underTest =
+        new InterviewApplication(numWriteThreads, numWriteThreads /* maxFileHandles */,
+            outputFilesAsStrings, tempInputFile.toString() /* inputFilePath */);
+    assertEquals(tempOutputFiles.size(), underTest.partitionNumToThreadNo.size());
+    assertEquals(numWriteThreads, underTest.threadNumToWriter.size());
+  }
+
+  @Test
+  void testConstructorHappyThreeThreadsFivePartitions(TestInfo testInfo) throws IOException {
+
+    Path tempInputFile = createTempFile(testInfo);
+    List<Path> tempOutputFiles =
+        Lists.newArrayList(createTempFile(testInfo), createTempFile(testInfo),
+            createTempFile(testInfo), createTempFile(testInfo), createTempFile(testInfo));
 
     List<String> outputFilesAsStrings = Lists.newArrayList();
     for (Path p : tempOutputFiles) {
@@ -164,67 +171,32 @@ public class TestInteviewApplication {
       assertTrue(p.toFile().delete());
     }
 
-    try {
-      int numWriteThreads = 1;
-      InterviewApplication underTest =
-          new InterviewApplication(numWriteThreads, numWriteThreads /* maxFileHandles */,
-              outputFilesAsStrings, tempInputFile.toString() /* inputFilePath */);
-      assertEquals(tempOutputFiles.size(), underTest.partitionNumToThreadNo.size());
-      assertEquals(numWriteThreads, underTest.threadNumToWriter.size());
-    } finally {
-      assertTrue(tempInputFile.toFile().delete());
-    }
-  }
+    int numWriteThreads = 3;
+    InterviewApplication underTest =
+        new InterviewApplication(numWriteThreads, numWriteThreads /* maxFileHandles */,
+            outputFilesAsStrings, tempInputFile.toString() /* inputFilePath */);
+    assertEquals(tempOutputFiles.size(), underTest.partitionNumToThreadNo.size());
+    assertEquals(numWriteThreads, underTest.threadNumToWriter.size());
 
-  @Test
-  void testConstructorHappyThreeThreadsFivePartitions() throws IOException {
-    String methodName = "testConstructorHappyThreePartitions";
-    String filePrefix = String.format("%s_%s", getClass().getName(), methodName);
-
-    Path tempInputFile = Files.createTempFile(filePrefix, null /* suffix */);
-    List<Path> tempOutputFiles = Lists.newArrayList(//
-        Files.createTempFile(filePrefix, null /* suffix */),
-        Files.createTempFile(filePrefix, null /* suffix */),
-        Files.createTempFile(filePrefix, null /* suffix */),
-        Files.createTempFile(filePrefix, null /* suffix */),
-        Files.createTempFile(filePrefix, null /* suffix */));
-
-    List<String> outputFilesAsStrings = Lists.newArrayList();
-    for (Path p : tempOutputFiles) {
-      outputFilesAsStrings.add(p.toString());
-      assertTrue(p.toFile().delete());
-    }
-
-    try {
-      int numWriteThreads = 3;
-      InterviewApplication underTest =
-          new InterviewApplication(numWriteThreads, numWriteThreads /* maxFileHandles */,
-              outputFilesAsStrings, tempInputFile.toString() /* inputFilePath */);
-      assertEquals(tempOutputFiles.size(), underTest.partitionNumToThreadNo.size());
-      assertEquals(numWriteThreads, underTest.threadNumToWriter.size());
-
-      Map<Integer, List<Integer>> threadNumToPartitionNos = Maps.newHashMap();
-      HashSet<Integer> distinctValues = Sets.newHashSet(underTest.partitionNumToThreadNo.values());
-      for (int threadNum : distinctValues) {
-        assertTrue(threadNum < numWriteThreads);
-        List<Integer> partitionNos = Lists.newArrayList();
-        for (int partitionNum : underTest.partitionNumToThreadNo.keySet()) {
-          if (underTest.partitionNumToThreadNo.get(partitionNum) == threadNum) {
-            partitionNos.add(partitionNum);
-          }
+    Map<Integer, List<Integer>> threadNumToPartitionNos = Maps.newHashMap();
+    HashSet<Integer> distinctValues = Sets.newHashSet(underTest.partitionNumToThreadNo.values());
+    for (int threadNum : distinctValues) {
+      assertTrue(threadNum < numWriteThreads);
+      List<Integer> partitionNos = Lists.newArrayList();
+      for (int partitionNum : underTest.partitionNumToThreadNo.keySet()) {
+        if (underTest.partitionNumToThreadNo.get(partitionNum) == threadNum) {
+          partitionNos.add(partitionNum);
         }
-        threadNumToPartitionNos.put(threadNum, partitionNos);
-        LOG.info(String.format("%s -- threadNum: %d, partitions: %s", methodName, threadNum,
-            partitionNos));
       }
-
-      assertEquals(2, threadNumToPartitionNos.get(0).size());
-      assertEquals(2, threadNumToPartitionNos.get(1).size());
-      assertEquals(1, threadNumToPartitionNos.get(2).size());
-
-    } finally {
-      assertTrue(tempInputFile.toFile().delete());
+      threadNumToPartitionNos.put(threadNum, partitionNos);
+      LOG.info(String.format("%s -- threadNum: %d, partitions: %s",
+          testInfo.getTestMethod().get().getName(), threadNum, partitionNos));
     }
+
+    assertEquals(2, threadNumToPartitionNos.get(0).size());
+    assertEquals(2, threadNumToPartitionNos.get(1).size());
+    assertEquals(1, threadNumToPartitionNos.get(2).size());
+
   }
 
   @Test
