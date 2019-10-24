@@ -127,7 +127,7 @@ public class AsynchronousWriter implements Closeable {
   class WriteTask implements Callable<WriteTask> {
     AggregateSample sample;
     AtomicReference<Future<WriteTask>> scheduled;
-    Thread thread;
+    Thread awaitingThread;
 
     /**
      * Canonical constructor.
@@ -137,7 +137,7 @@ public class AsynchronousWriter implements Closeable {
     WriteTask(AggregateSample sample) {
       this.sample = sample;
       this.scheduled = new AtomicReference<Future<WriteTask>>(null /* initialValue */);
-      this.thread = Thread.currentThread();
+      this.awaitingThread = Thread.currentThread();
     }
 
     @Override
@@ -180,7 +180,7 @@ public class AsynchronousWriter implements Closeable {
     void scheduledHook(Future<WriteTask> taskFuture) {
       if (scheduled.compareAndSet(null, taskFuture)) {
         numWriteTasksScheduled.incrementAndGet();
-        thread.interrupt();
+        awaitingThread.interrupt();
       } else {
         throw new IllegalStateException("task scheduled more than once");
       }
@@ -298,8 +298,8 @@ public class AsynchronousWriter implements Closeable {
         LOG.warn(
             String.format("Could not shut down executor service within %s", executorWaitDuration));
         List<Runnable> stragglers = executor.shutdownNow();
-        LOG.warn(
-            String.format("Cancelled execution of scheduled task -- count: %d", stragglers.size()));
+        LOG.warn(String.format("Cancelled execution of scheduled tasks -- count: %d",
+            stragglers.size()));
       } else {
         LOG.info(
             String.format("Shut down executor service successfully in %s", executorWaitDuration));
@@ -367,7 +367,7 @@ public class AsynchronousWriter implements Closeable {
     while (Instant.now().isBefore(endWaitTime) && waitCondition.get()) {
       try {
         long waitTimeInMillis =
-            max(Duration.between(Instant.now(), endWaitTime).toMillis() / 2, 100);
+            max(Duration.between(Instant.now(), endWaitTime).toMillis() / 2, pollDelay.toMillis());
         Thread.sleep(waitTimeInMillis);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();

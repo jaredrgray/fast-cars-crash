@@ -45,6 +45,8 @@ import org.mockito.Mockito;
 
 public class TestCommandLineApplication extends InterviewTestCase {
 
+  private static final int QUEUE_SIZE = 3;
+  
   private static class FileDeletor implements FileVisitor<Path> {
     @Override
     public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
@@ -79,14 +81,14 @@ public class TestCommandLineApplication extends InterviewTestCase {
    * The idea is to prevent this test suite from calling {@link InterviewApplication}'s code, which
    * is outside the scope of a unit test.
    */
-  private static class MockedCliApp extends CommandLineInterviewApplication {
+  private static class DummyCliApp extends CommandLineInterviewApplication {
 
-    private MockedCliApp(CommandLineArgs args) {
-      super(args);
+    private DummyCliApp(CommandLineArgs args) {
+      super(args, QUEUE_SIZE);
     }
 
-    private MockedCliApp(JCommander commander, CommandLineArgs args) {
-      super(commander, args);
+    private DummyCliApp(JCommander commander, CommandLineArgs args) {
+      super(commander, args, QUEUE_SIZE);
 
       appFactory = new AppFactory() {
         @Override
@@ -96,8 +98,8 @@ public class TestCommandLineApplication extends InterviewTestCase {
       };
     }
 
-    private MockedCliApp(String[] args) {
-      super(args);
+    private DummyCliApp(String[] args) {
+      super(args, QUEUE_SIZE);
     }
   }
 
@@ -111,7 +113,7 @@ public class TestCommandLineApplication extends InterviewTestCase {
     CommandLineArgs args = new CommandLineArgs();
     args.inputFile = validFile.toString();
     args.outputDirectory = validDir.toString();
-    new MockedCliApp(args);
+    new DummyCliApp(args);
   }
 
   @Test
@@ -128,8 +130,8 @@ public class TestCommandLineApplication extends InterviewTestCase {
     args.numWriteThreads = 1;
 
     JCommander spyCommander = spy(new JCommander());
-    MockedCliApp app = new MockedCliApp(spyCommander, args);
-    MockedCliApp appSpy = spy(app);
+    DummyCliApp app = new DummyCliApp(spyCommander, args);
+    DummyCliApp appSpy = spy(app);
     doThrow(new NullPointerException()).when(appSpy).execute();
 
     try {
@@ -154,7 +156,7 @@ public class TestCommandLineApplication extends InterviewTestCase {
     args.numWriteThreads = 1;
 
     JCommander mockCommander = mock(JCommander.class, Mockito.RETURNS_DEEP_STUBS);
-    MockedCliApp appSpy = spy(new MockedCliApp(mockCommander, args));
+    DummyCliApp appSpy = spy(new DummyCliApp(mockCommander, args));
     doThrow(new ParameterException("POOP")).when(appSpy).parseArgs();
 
     executeWrapper(appSpy);
@@ -197,7 +199,7 @@ public class TestCommandLineApplication extends InterviewTestCase {
     args.outputDirectory = "outdir";
 
     JCommander mockCmder = mock(JCommander.class);
-    MockedCliApp underTest = new MockedCliApp(mockCmder, args);
+    DummyCliApp underTest = new DummyCliApp(mockCmder, args);
     executeWrapper(underTest);
     verify(mockCmder).usage();
   }
@@ -245,7 +247,7 @@ public class TestCommandLineApplication extends InterviewTestCase {
             testInfo.getTestMethod().get().getName(), i, args.inputFile == null,
             args.outputDirectory == null));
 
-        MockedCliApp underTest = new MockedCliApp(args);
+        DummyCliApp underTest = new DummyCliApp(args);
         underTest.validateArgs();
         fail("Expected IllegalArgumentException");
       } catch (IllegalArgumentException e) {
@@ -270,7 +272,7 @@ public class TestCommandLineApplication extends InterviewTestCase {
     args.outputDirectory = "outdir";
 
     JCommander mockCmder = mock(JCommander.class);
-    MockedCliApp underTest = new MockedCliApp(mockCmder, args);
+    DummyCliApp underTest = new DummyCliApp(mockCmder, args);
     underTest.execute();
     verify(mockCmder, never()).usage();
   }

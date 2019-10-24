@@ -23,6 +23,7 @@ import com.google.common.collect.Lists;
 import com.tesla.interview.application.InterviewApplication;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -40,11 +41,14 @@ public class CommandLineInterviewApplication {
       Path outputDirectory = Paths.get(parsedArguments.outputDirectory);
       List<String> outputFilePaths = getOutputFiles(parsedArguments.numPartitions, outputDirectory);
       return new InterviewApplication(parsedArguments.numWriteThreads,
-          Integer.MAX_VALUE /* TODO: maxFileHandles */, outputFilePaths, parsedArguments.inputFile);
+          Integer.MAX_VALUE /* TODO: maxFileHandles */, outputFilePaths, parsedArguments.inputFile,
+          queueSize, DEFAULT_POLL_DURATION);
     }
   }
 
   private static final String OUTPUT_FILE_FORMAT = "output-file-%d.csv";
+  private static final int DEFAULT_QUEUE_SIZE = 100;
+  private static final Duration DEFAULT_POLL_DURATION = Duration.ofSeconds(1);
 
   /**
    * Run the application from the command line.
@@ -52,7 +56,7 @@ public class CommandLineInterviewApplication {
    * @param args command-line arguments
    */
   public static void main(String[] args) {
-    executeWrapper(new CommandLineInterviewApplication(args));
+    executeWrapper(new CommandLineInterviewApplication(args, DEFAULT_QUEUE_SIZE));
   }
 
   /**
@@ -112,17 +116,19 @@ public class CommandLineInterviewApplication {
   }
 
   AppFactory appFactory = new AppFactory();
+  CommandLineArgs parsedArguments;
+
+  final int queueSize;
   final JCommander commander;
   final String[] rawArgs;
-  CommandLineArgs parsedArguments;
 
   /**
    * Primary constructor. Our main method calls this.
    * 
    * @param args command line arguments
    */
-  public CommandLineInterviewApplication(String[] args) {
-    this(new JCommander(), args);
+  public CommandLineInterviewApplication(String[] args, int queueSize) {
+    this(new JCommander(), args, queueSize);
   }
 
   /**
@@ -130,8 +136,8 @@ public class CommandLineInterviewApplication {
    * 
    * @param args command line arguments to inject
    */
-  CommandLineInterviewApplication(CommandLineArgs args) {
-    this(new JCommander(args), args);
+  CommandLineInterviewApplication(CommandLineArgs args, int queueSize) {
+    this(new JCommander(args), args, queueSize);
   }
 
   /**
@@ -140,10 +146,11 @@ public class CommandLineInterviewApplication {
    * @param commander commander to inject
    * @param args parsed args to inject
    */
-  CommandLineInterviewApplication(JCommander commander, CommandLineArgs args) {
+  CommandLineInterviewApplication(JCommander commander, CommandLineArgs args, int queueSize) {
     this.commander = commander;
     this.parsedArguments = args;
     this.rawArgs = null;
+    this.queueSize = queueSize;
   }
 
   /**
@@ -152,10 +159,11 @@ public class CommandLineInterviewApplication {
    * @param commander commander to inject
    * @param args command line arguments to inject
    */
-  CommandLineInterviewApplication(JCommander commander, String[] args) {
+  CommandLineInterviewApplication(JCommander commander, String[] args, int queueSize) {
     this.commander = commander;
     this.parsedArguments = null;
     this.rawArgs = args;
+    this.queueSize = queueSize;
   }
 
   /**

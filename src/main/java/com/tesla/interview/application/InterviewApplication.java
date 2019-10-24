@@ -23,6 +23,7 @@ import com.tesla.interview.application.AsynchronousWriter.WriteTask;
 import com.tesla.interview.io.MeasurementSampleReader;
 import com.tesla.interview.model.AggregateSample;
 import com.tesla.interview.model.MeasurementSample;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -33,9 +34,14 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 
@@ -44,6 +50,185 @@ import org.apache.logging.log4j.Logger;
  * a series of {@link WriteTask}s to write the resulting aggregation to an output file.
  */
 public class InterviewApplication implements Callable<Void> {
+
+  /**
+   * Spawns write tasks for {@link AsynchronousWriter}.
+   */
+  class TaskProducer implements Callable<Void> {
+
+    @Override
+    public Void call() throws Exception {
+      spawnWrites();
+      return null;
+    }
+
+    /**
+     * Schedule the next write from the input file.
+     * 
+     * @param aggregate write to schedule
+     * @param writer writer that will execute the write
+     */
+    private void spawnWrite(AggregateSample aggregate, AsynchronousWriter writer) {
+      taskLock.lock();
+      try {
+        while (pendingTasks.size() == maxNumTasks) {
+          try {
+            queueHasRoom.await();
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+        }
+        Future<WriteTask> future = writer.writeSample(aggregate);
+        pendingTasks.add(future);
+        sampleAvailable.signal();
+      } finally {
+        taskLock.unlock();
+      }
+    }
+
+    /**
+     * Spawn the full series of {@link WriteTask}s based on data gleaned from the input file.
+     */
+    private void spawnWrites() {
+
+      // read next sample
+      LOG.info("spawning write tasks");
+      Instant lastPrintTime = Instant.MIN;
+      int spawnCount = 0;
+      int lastSpawnCount = 0;
+      while (reader.hasNext()) {
+        AggregateSample aggregate = aggregateMeasurement(reader.next());
+
+        // associate sample with correct writer
+        int partitionNo = aggregate.getPartitionNo() - 1;
+        int threadNo = partitionNumToThreadNo.getOrDefault(partitionNo, -1 /* defaultValue */);
+        AsynchronousWriter writer =
+            threadNumToWriter.getOrDefault(threadNo, null /* defaultValue */);
+        if (writer != null) {
+
+          // enqueue write
+          spawnWrite(aggregate, writer);
+          spawnCount++;
+        } else {
+
+          // if this happens, InterviewApplication is bugged!
+          String message = String.format("No writer found -- partitionNo: %s, threadNo: %d",
+              partitionNo, threadNo);
+          LOG.fatal(message);
+          throw new IllegalStateException(message);
+        }
+
+        // print status periodically
+        if (Duration.between(lastPrintTime, Instant.now()).compareTo(PRINT_INTERVAL) > 0) {
+          lastPrintTime = Instant.now();
+          if (spawnCount > lastSpawnCount) {
+            LOG.info(String.format("spawning new write tasks -- numSpawned: %d", spawnCount));
+          }
+          lastSpawnCount = spawnCount;
+        }
+      }
+
+      // finish up
+      if (!readComplete.compareAndSet(false, true)) {
+        throw new IllegalStateException("read cannot complete more than once");
+      }
+      LOG.info(String.format("all write tasks spawned -- numSpawned: %d", spawnCount));
+    }
+  }
+
+  /**
+   * Wait for all write tasks spawned by the {@link InterviewApplication#producer}.
+   */
+  class TaskConsumer implements Callable<Void> {
+
+    @Override
+    public Void call() throws Exception {
+      awaitWrites();
+      return null;
+    }
+
+    /**
+     * Wait for all writes to complete.
+     */
+    private void awaitWrites() {
+
+      // wait for each write
+      LOG.info("waiting for in-flight writes to complete");
+      Instant lastPrintTime;
+      lastPrintTime = Instant.MIN;
+      Future<WriteTask> next;
+      int numCompleted = 0;
+      while ((next = consumeWrite()) != null) {
+        waitForWrite(next);
+        numCompleted++;
+
+        // print status periodically
+        if (Duration.between(lastPrintTime, Instant.now()).compareTo(PRINT_INTERVAL) > 0) {
+          lastPrintTime = Instant.now();
+          LOG.info(
+              String.format("awaiting write task completion -- numCompleted: %s", numCompleted));
+        }
+      }
+
+      // wait for the last batch
+      taskLock.lock();
+      try {
+        while (!pendingTasks.isEmpty()) {
+          waitForWrite(pendingTasks.poll());
+        }
+      } finally {
+        taskLock.unlock();
+      }
+      LOG.info("all write tasks have completed");
+    }
+
+    /**
+     * Wait until the scheduled write has completed.
+     * 
+     * @param write write for which to wait
+     */
+    private void waitForWrite(Future<WriteTask> write) {
+      try {
+        write.get();
+      } catch (InterruptedException e) {
+        // no problem!
+      } catch (ExecutionException e) {
+        // big problem!
+        String message = "Unexpected exception while waiting for write thread -- " + " message: "
+            + e.getMessage();
+        LOG.error(message);
+        logTrace(LOG, Level.ERROR, e);
+      }
+    }
+
+    /**
+     * Consume and return the next scheduled {@link WriteTask} from the buffer.
+     * 
+     * @return next buffered write in the queue or <code>null</code> if read phase of application is
+     *         complete
+     */
+    @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
+    private Future<WriteTask> consumeWrite() {
+      Future<WriteTask> task = null;
+      taskLock.lock();
+      try {
+        while (pendingTasks.isEmpty() && !readComplete.get()) {
+          try {
+            sampleAvailable.await(pollDuration.toMillis(), TimeUnit.MILLISECONDS);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+        }
+        if (!pendingTasks.isEmpty()) {
+          task = pendingTasks.remove();
+          queueHasRoom.signal();
+        }
+      } finally {
+        taskLock.unlock();
+      }
+      return task;
+    }
+  }
 
   private static final Logger LOG = getLogger(InterviewApplication.class);
   private static final Duration PRINT_INTERVAL = Duration.ofSeconds(3); // TODO make configurable
@@ -66,9 +251,20 @@ public class InterviewApplication implements Callable<Void> {
         measurement.getTimestamp());
   }
 
+  private final Lock taskLock = new ReentrantLock();
+  private final Condition sampleAvailable = taskLock.newCondition();
+  private final Condition queueHasRoom = taskLock.newCondition();
+  private final AtomicBoolean readComplete = new AtomicBoolean(false /* initialValue */);
+  private final TaskConsumer consumer = new TaskConsumer();
+  private final TaskProducer producer = new TaskProducer();
+  private final ExecutorService executor = Executors.newFixedThreadPool(2 /* nThreads */);
+
   final Map<Integer, Integer> partitionNumToThreadNo; // note: partitions indexed from 0
   final MeasurementSampleReader reader;
+  final int maxNumTasks;
   final Map<Integer, AsynchronousWriter> threadNumToWriter;
+  final Queue<Future<WriteTask>> pendingTasks;
+  final Duration pollDuration;
 
   /**
    * Canonical constructor.
@@ -79,7 +275,7 @@ public class InterviewApplication implements Callable<Void> {
    * @param inputFilePath path to the input samples file
    */
   public InterviewApplication(int numWriteThreads, int maxFileHandles, List<String> outputFilePaths,
-      String inputFilePath) {
+      String inputFilePath, int queueSize, Duration pollDuration) {
 
     /* BEGIN: validate input */
     if (numWriteThreads <= 0) {
@@ -101,15 +297,24 @@ public class InterviewApplication implements Callable<Void> {
     if (inputFilePath == null || inputFilePath.isEmpty()) {
       throw new IllegalArgumentException("inputFilePath must be non-empty");
     }
+    if (queueSize <= 0) {
+      throw new IllegalArgumentException("queueSize must be positive");
+    }
+    if (pollDuration == null) {
+      throw new IllegalArgumentException("pollDuration cannot be null");
+    }
     /* END: validate input */
 
     this.reader = new MeasurementSampleReader(Paths.get(inputFilePath).toFile());
     this.partitionNumToThreadNo = Maps.newHashMap();
     this.threadNumToWriter = Maps.newHashMap();
-    int maxPartitionsPerThread =
-        (int) ceil(outputFilePaths.size() / Double.valueOf(numWriteThreads));
+    this.maxNumTasks = queueSize;
+    this.pendingTasks = new ArrayDeque<Future<WriteTask>>(maxNumTasks);
+    this.pollDuration = pollDuration;
 
     // construct the reader and list of write threads from validated input
+    int maxPartitionsPerThread =
+        (int) ceil(outputFilePaths.size() / Double.valueOf(numWriteThreads));
     for (int threadNo = 0; threadNo < numWriteThreads; threadNo++) {
       Map<Integer, String> partitionNumToPath = Maps.newHashMap();
       for (int partitionNo = threadNo * maxPartitionsPerThread; partitionNo < outputFilePaths.size()
@@ -148,26 +353,41 @@ public class InterviewApplication implements Callable<Void> {
   InterviewApplication(//
       Map<Integer, Integer> partitionNoToThreadNo, //
       MeasurementSampleReader reader, //
-      Map<Integer, AsynchronousWriter> threadNumToWriter) {
+      Map<Integer, AsynchronousWriter> threadNumToWriter, //
+      Queue<Future<WriteTask>> taskQueue, //
+      int maxQueueSize, //
+      Duration pollDuration) {
 
     this.partitionNumToThreadNo = partitionNoToThreadNo;
     this.reader = reader;
     this.threadNumToWriter = threadNumToWriter;
+    this.pendingTasks = taskQueue;
+    this.maxNumTasks = maxQueueSize;
+    this.pollDuration = pollDuration;
   }
 
   @Override
   public Void call() {
-    LOG.info("starting application");
-    LOG.info("spawning write tasks");
-    Queue<Future<WriteTask>> q = spawnWrites();
-    LOG.info(String.format("all write tasks spawned -- numSpawned: %d", q.size()));
 
-    LOG.info("waiting for in-flight writes to complete");
-    awaitWrites(q);
-    LOG.info("all write tasks have completed");
-    LOG.info("stopping application");
+    // spawn threads
+    LOG.info("starting application");
+    Future<Void> producerFuture = executor.submit(producer);
+    Future<Void> consumerFuture = executor.submit(consumer);
+
+    // wait till we're done
+    try {
+      producerFuture.get();
+      LOG.info("producer done");
+      consumerFuture.get();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("unexpected error", e);
+    }
 
     // tidy the room
+    LOG.info("stopping application");
+    executor.shutdownNow();
     reader.close();
     for (AsynchronousWriter writer : threadNumToWriter.values()) {
       writer.close();
@@ -176,80 +396,5 @@ public class InterviewApplication implements Callable<Void> {
     // all done!
     LOG.info("application stopped");
     return null;
-  }
-
-  /**
-   * Wait for all writes to complete.
-   * <p/>
-   * TODO do this in a separate thread to reduce memory usage
-   */
-  private void awaitWrites(Queue<Future<WriteTask>> q) {
-    Instant lastPrintTime;
-    lastPrintTime = Instant.MIN;
-    while (!q.isEmpty()) {
-      Future<WriteTask> next = q.remove();
-      try {
-        next.get(10, TimeUnit.SECONDS); // TODO make timeout configurable
-      } catch (InterruptedException e) {
-        // no problem!
-        Thread.currentThread().interrupt();
-      } catch (TimeoutException e) {
-        // minor problem!
-        LOG.warn("Unexpected timeout while waiting for write thread -- message: " + e.getMessage());
-      } catch (ExecutionException e) {
-        // big problem!
-        String message = "Unexpected exception while waiting for write thread -- " + " message: "
-            + e.getMessage();
-        LOG.error(message);
-        logTrace(LOG, Level.ERROR, e);
-      }
-
-      // print status periodically
-      if (Duration.between(lastPrintTime, Instant.now()).compareTo(PRINT_INTERVAL) > 0) {
-        lastPrintTime = Instant.now();
-        LOG.info(String.format("awaiting write task completion -- numRemaining: %d", q.size()));
-      }
-    }
-  }
-
-  /**
-   * Spawn a series of {@link WriteTask}s.
-   * 
-   * @return a {@link Queue} containing all spawned tasks.
-   */
-  private Queue<Future<WriteTask>> spawnWrites() {
-    Instant lastPrintTime = Instant.MIN;
-    int spawnCount = 0;
-    int lastSpawnCount = 0;
-    Queue<Future<WriteTask>> q = new ArrayDeque<>();
-    while (reader.hasNext()) {
-      AggregateSample aggregate = aggregateMeasurement(reader.next());
-      // convert from: index-from-one, to: index-from-zero
-      int partitionNo = aggregate.getPartitionNo() - 1;
-      int threadNo = partitionNumToThreadNo.getOrDefault(partitionNo, -1 /* defaultValue */);
-      AsynchronousWriter writer = threadNumToWriter.getOrDefault(threadNo, null /* defaultValue */);
-      if (writer != null) {
-        q.add(writer.writeSample(aggregate));
-        spawnCount++;
-      } else {
-        // if this happens, InterviewApplication is bugged!
-        String message = String.format("No writer found -- partitionNo: %s, threadNo: %d",
-            partitionNo, threadNo);
-        LOG.fatal(message);
-        throw new IllegalStateException(message);
-      }
-
-      // print status periodically
-      if (Duration.between(lastPrintTime, Instant.now()).compareTo(PRINT_INTERVAL) > 0) {
-
-        lastPrintTime = Instant.now();
-        if (spawnCount > lastSpawnCount) {
-          LOG.info(String.format("spawned new write tasks -- numSpawned: %d",
-              spawnCount - lastSpawnCount));
-        }
-        lastSpawnCount = spawnCount;
-      }
-    }
-    return q;
   }
 }

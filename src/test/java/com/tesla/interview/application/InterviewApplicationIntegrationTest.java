@@ -23,14 +23,17 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
 import com.tesla.interview.io.MeasurementSampleReader;
 import com.tesla.interview.model.AggregateSample;
 import com.tesla.interview.model.IntegerHashtag;
 import com.tesla.interview.model.MeasurementSample;
+import com.tesla.interview.tests.InterviewTestCase;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
@@ -43,9 +46,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.mockito.stubbing.OngoingStubbing;
 
-class InterviewApplicationIntegrationTest extends TestInteviewApplication {
+class InterviewApplicationIntegrationTest extends InterviewTestCase {
 
-  protected final Random rand = new Random(0xdeadbeef);
+  protected static final Random rand = new Random(0xdeadbeef);
+  private static final int QUEUE_SIZE = 100;
+  private static final Duration POLL_DURATION = Duration.ofSeconds(1);
 
   @Test
   @Tag(INTEGRATION_TEST_TAG)
@@ -70,10 +75,11 @@ class InterviewApplicationIntegrationTest extends TestInteviewApplication {
       threadNoToWriter.put(threadNum,
           createWriter(testInfo, threadNumToPartitions, methodName, threadNum));
     }
-
+ 
     // build and run the app
     InterviewApplication underTest =
-        new InterviewApplication(partitionNumToThreadNo, mockReader, threadNoToWriter);
+        new InterviewApplication(partitionNumToThreadNo, mockReader, threadNoToWriter,
+            Queues.newArrayDeque(), QUEUE_SIZE, POLL_DURATION);
     stubHasNext(numSamples, mockReader);
     List<MeasurementSample> ordered = stubNext(numSamples, numPartitions, mockReader);
     underTest.call();
