@@ -66,8 +66,7 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
     }
   }
   
-  protected static final Random rand = new Random(0xdeadbeef);
-  
+  private static final Random rand = new Random(0xdeadbeef);
   private static final int QUEUE_SIZE = 100;
   private static final Duration POLL_DURATION = Duration.ofSeconds(1);
 
@@ -199,7 +198,7 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
     // set test parameters
     int numPartitions = 7;
     int numThreads = 3;
-    int numSamples = 50;
+    int numSamples = 5000;
 
     // build maps
     Map<Integer, Integer> partitionNumToThreadNo = Maps.newHashMap();

@@ -14,7 +14,7 @@
 
 package com.tesla.interview.application;
 
-import static java.lang.Math.max;
+import static java.lang.Math.floorMod;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 import com.google.common.collect.Lists;
@@ -31,6 +31,7 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,6 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.logging.log4j.Logger;
 
@@ -61,36 +63,21 @@ public class AsynchronousWriter implements Closeable {
 
       LOG.info(String.format("Starting scheduler -- numPartitions: %d", partitionNumToPath.size()));
 
-      Instant lastPrintTime = Instant.MIN;
-      int lastNumTasksScheduled = 0;
-      int lastNumTasksCompleted = 0;
+      Instant nextPrintTime = Instant.MIN;
       while (!isClosed.get()) {
-        scheduleTasks();
+        scheduleNextTask();
 
         // print status periodically
-        if (Duration.between(lastPrintTime, Instant.now()).compareTo(PRINT_INTERVAL) > 0) {
-          lastPrintTime = Instant.now();
+        if (Instant.now().isAfter(nextPrintTime)) {
           StringBuilder message = new StringBuilder("progress -- ");
-          boolean doPrint = false;
-          if (lastNumTasksScheduled < numWriteTasksScheduled.intValue()) {
-            message.append(String.format("numWriteTasksScheduled: %d",
-                numWriteTasksScheduled.intValue() - lastNumTasksScheduled));
-            doPrint = true;
-          }
-          lastNumTasksScheduled = numWriteTasksScheduled.intValue();
-          if (lastNumTasksCompleted < numWriteTasksCompleted.intValue()) {
-            if (doPrint) {
-              message.append(", ");
-            }
-            message.append(String.format("numCompleted: %d",
-                numWriteTasksCompleted.intValue() - lastNumTasksCompleted));
-            doPrint = true;
-          }
-
-          if (doPrint) {
-            LOG.info(message.toString());
-          }
-          lastNumTasksCompleted = numWriteTasksCompleted.intValue();
+          message.append(
+              String.format("numWriteTasksScheduled: %d", numWriteTasksScheduled.intValue()));
+          message.append(", ");
+          message.append(String.format("numCompleted: %d", numWriteTasksCompleted.intValue()));
+          LOG.info(message.toString());
+          Duration randomizedWait =
+              Duration.ofMillis(floorMod(RANDOM.nextLong(), PRINT_INTERVAL.toMillis()));
+          nextPrintTime = Instant.now().plus(randomizedWait);
         }
       }
     }
@@ -99,7 +86,7 @@ public class AsynchronousWriter implements Closeable {
      * Use a condition variable to schedule tasks efficiently.
      */
     @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
-    private void scheduleTasks() {
+    private void scheduleNextTask() {
       bufferLock.lock();
       try {
         while (!isClosed.get() && bufferedWrites.isEmpty()) {
@@ -187,10 +174,11 @@ public class AsynchronousWriter implements Closeable {
     }
   }
 
-  private static final Duration DEFAULT_MAX_WAIT = Duration.ofSeconds(3);
+  private static final Duration DEFAULT_MAX_WAIT = Duration.ofSeconds(10);
   private static final Logger LOG = getLogger(AsynchronousWriter.class);
-  private static final Duration PRINT_INTERVAL = Duration.ofSeconds(15);
+  private static final Duration PRINT_INTERVAL = Duration.ofSeconds(10);
   private static final Duration DEFAULT_POLL_DELAY = Duration.ofSeconds(1);
+  private static final Random RANDOM = new Random();
 
   final int bufferSize;
   final ExecutorService executor;
@@ -289,7 +277,17 @@ public class AsynchronousWriter implements Closeable {
 
       executor.shutdown();
       Supplier<Boolean> notTerminated = () -> !executor.isTerminated();
-      Duration executorWaitDuration = bestEffortWait(maxWaitDuration, notTerminated);
+      Function<Void, Void> executorWaitFun = (Void v) -> {
+        try {
+          executor.awaitTermination(maxWaitDuration.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+        return null;
+      };
+      Duration executorWaitDuration =
+          bestEffortWait(maxWaitDuration, notTerminated, executorWaitFun);
+
       if (notTerminated.get()) {
         LOG.warn(
             String.format("Could not shut down executor service within %s", executorWaitDuration));
@@ -302,7 +300,17 @@ public class AsynchronousWriter implements Closeable {
       }
 
       Supplier<Boolean> isAlive = () -> scheduler.isAlive();
-      Duration schedulerWaitDuration = bestEffortWait(maxWaitDuration, isAlive);
+      Function<Void, Void> waitFun = (Void v) -> {
+        long waitTimeInMillis = maxWaitDuration.toMillis() / 2;
+        try {
+          Thread.sleep(waitTimeInMillis);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+        return null;
+      };
+      Duration schedulerWaitDuration = bestEffortWait(maxWaitDuration, isAlive, waitFun);
+
       if (isAlive.get()) {
         LOG.warn(String.format("Could not shut down scheduler within %s", schedulerWaitDuration));
       } else {
@@ -356,18 +364,13 @@ public class AsynchronousWriter implements Closeable {
    * @return amount of time we waited
    */
   @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
-  private Duration bestEffortWait(Duration maxWaitDuration, Supplier<Boolean> waitCondition) {
+  private Duration bestEffortWait(Duration maxWaitDuration, Supplier<Boolean> waitCondition,
+      Function<Void, Void> waitFun) {
 
     Instant startWaitTime = Instant.now();
     Instant endWaitTime = startWaitTime.plus(maxWaitDuration);
     while (Instant.now().isBefore(endWaitTime) && waitCondition.get()) {
-      try {
-        long waitTimeInMillis =
-            max(Duration.between(Instant.now(), endWaitTime).toMillis() / 2, pollDelay.toMillis());
-        Thread.sleep(waitTimeInMillis);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
+      waitFun.apply(null);
     }
 
     Duration actualWaitDuration = Duration.between(startWaitTime, Instant.now());

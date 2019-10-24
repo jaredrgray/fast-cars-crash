@@ -63,11 +63,7 @@ task unitTest(type: Test) {
 test {
     group 'Verification'
     description 'Runs all tests'
-    
     useJUnitPlatform() // jupiter
-    
-    dependsOn unitTest
-    dependsOn integrationTest
 }
 
 check {
