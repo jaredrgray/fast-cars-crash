@@ -14,6 +14,7 @@
 
 package com.tesla.interview.tests;
 
+import static com.tesla.interview.tests.FunctionalTestSuite.FUNCTIONAL_TEST_TAG;
 import static com.tesla.interview.tests.IntegrationTestSuite.INTEGRATION_TEST_TAG;
 
 import org.junit.platform.runner.JUnitPlatform;
@@ -29,7 +30,7 @@ import org.junit.runner.RunWith;
 @RunWith(JUnitPlatform.class)
 @SelectPackages("com.tesla.interview.application")
 @IncludeClassNamePatterns({"^.+[.]Test.*$"})
-@ExcludeTags(INTEGRATION_TEST_TAG)
+@ExcludeTags({FUNCTIONAL_TEST_TAG, INTEGRATION_TEST_TAG})
 public class UnitTestSuite {
 
 }

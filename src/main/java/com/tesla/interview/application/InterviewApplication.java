@@ -90,7 +90,9 @@ public class InterviewApplication implements Callable<Void> {
       taskLock.lock();
       try {
         while (!pendingTasks.isEmpty()) {
-          waitForWrite(pendingTasks.poll());
+          next = pendingTasks.poll();
+          queueHasRoom.signal();
+          waitForWrite(next);
         }
       } finally {
         taskLock.unlock();
@@ -111,7 +113,13 @@ public class InterviewApplication implements Callable<Void> {
       try {
         while (pendingTasks.isEmpty() && !readComplete.get()) {
           try {
+            if (LOG.isEnabled(Level.DEBUG)) {
+              LOG.debug("START -- sampleAvailable.await()");
+            }
             sampleAvailable.await(pollDuration.toMillis(), TimeUnit.MILLISECONDS);
+            if (LOG.isEnabled(Level.DEBUG)) {
+              LOG.debug("END   -- sampleAvailable.await()");
+            }
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
           }
@@ -133,7 +141,13 @@ public class InterviewApplication implements Callable<Void> {
      */
     private void waitForWrite(Future<WriteTask> write) {
       try {
+        if (LOG.isEnabled(Level.DEBUG)) {
+          LOG.debug("START -- write.get()");
+        }
         write.get();
+        if (LOG.isEnabled(Level.DEBUG)) {
+          LOG.debug("START -- write.get()");
+        }
       } catch (InterruptedException e) {
         // no problem!
       } catch (ExecutionException e) {
@@ -163,14 +177,21 @@ public class InterviewApplication implements Callable<Void> {
      * @param aggregate write to schedule
      * @param writer writer that will execute the write
      */
+    @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
     private void spawnWrite(AggregateSample aggregate, AsynchronousWriter writer) {
       taskLock.lock();
       try {
         while (pendingTasks.size() == maxNumTasks) {
           try {
+            if (LOG.isEnabled(Level.DEBUG)) {
+              LOG.debug("START -- queueHasRoom.await()");
+            }
             queueHasRoom.await(pollDuration.toMillis(), TimeUnit.MILLISECONDS);
+            if (LOG.isEnabled(Level.DEBUG)) {
+              LOG.debug("END   -- queueHasRoom.await()");
+            }
           } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            // we were deliberately interrupted; check condition again
           }
         }
         Future<WriteTask> future = writer.writeSample(aggregate);

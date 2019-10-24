@@ -64,11 +64,11 @@ public class CommandLineInterviewApplication {
    * validation exceptions to the console in a single line below the usage. Print a stack trace if
    * an unexpected exception occurs.
    * <p/>
-   * Package-visible for unit tests.
+   * Public for functional tests.
    * 
    * @param cliApp application to execute
    */
-  static void executeWrapper(CommandLineInterviewApplication cliApp) {
+  public static void executeWrapper(CommandLineInterviewApplication cliApp) {
     try {
       cliApp.parseArgs();
       cliApp.validateArgs();

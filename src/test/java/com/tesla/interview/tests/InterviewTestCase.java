@@ -37,7 +37,7 @@ public abstract class InterviewTestCase {
       Path next = createdFiles.pop();
       if (next != null && next.toFile() != null && next.toFile().exists()) {
         if (!next.toFile().delete()) {
-          LOG.warn(String.format("Unable to delete file -- path: %d", next));
+          LOG.warn(String.format("Unable to delete file -- path: %d"), next);
         }
       }
     }

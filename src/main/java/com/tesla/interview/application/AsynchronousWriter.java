@@ -45,6 +45,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 
 /**
@@ -62,19 +63,20 @@ public class AsynchronousWriter implements Closeable {
     public void run() {
 
       LOG.info(String.format("Starting scheduler -- numPartitions: %d", partitionNumToPath.size()));
-
       Instant nextPrintTime = Instant.MIN;
       while (!isClosed.get()) {
         scheduleNextTask();
 
         // print status periodically
         if (Instant.now().isAfter(nextPrintTime)) {
-          StringBuilder message = new StringBuilder("progress -- ");
-          message.append(
-              String.format("numWriteTasksScheduled: %d", numWriteTasksScheduled.intValue()));
-          message.append(", ");
-          message.append(String.format("numCompleted: %d", numWriteTasksCompleted.intValue()));
-          LOG.info(message.toString());
+          if (LOG.isInfoEnabled()) {
+            StringBuilder message = new StringBuilder("progress -- ");
+            message.append(
+                String.format("numWriteTasksScheduled: %d", numWriteTasksScheduled.intValue()));
+            message.append(", ");
+            message.append(String.format("numCompleted: %d", numWriteTasksCompleted.intValue()));
+            LOG.info(message.toString());
+          }
           Duration randomizedWait =
               Duration.ofMillis(floorMod(RANDOM.nextLong(), PRINT_INTERVAL.toMillis()));
           nextPrintTime = Instant.now().plus(randomizedWait);
@@ -91,7 +93,13 @@ public class AsynchronousWriter implements Closeable {
       try {
         while (!isClosed.get() && bufferedWrites.isEmpty()) {
           try {
+            if (LOG.isEnabled(Level.DEBUG)) {
+              LOG.debug("START -- bufferHasTask.await()");
+            }
             bufferHasTask.await(pollDelay.toMillis(), TimeUnit.MILLISECONDS);
+            if (LOG.isEnabled(Level.DEBUG)) {
+              LOG.debug("END   -- bufferHasTask.await()");
+            }
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
           }
@@ -174,12 +182,12 @@ public class AsynchronousWriter implements Closeable {
     }
   }
 
-  private static final Duration DEFAULT_MAX_WAIT = Duration.ofSeconds(10);
+  private static final Duration DEFAULT_MAX_WAIT = Duration.ofSeconds(2);
   private static final Logger LOG = getLogger(AsynchronousWriter.class);
   private static final Duration PRINT_INTERVAL = Duration.ofSeconds(10);
   private static final Duration DEFAULT_POLL_DELAY = Duration.ofSeconds(1);
   private static final Random RANDOM = new Random();
-  
+
   final WriteScheduler scheduler = new WriteScheduler();
   final List<AggregateSampleWriter> writers;
   final Lock bufferLock = new ReentrantLock();

@@ -48,16 +48,22 @@ repositories {
     mavenCentral()
 }
 
+task unitTest(type: Test) {
+    group 'Verification'
+    description 'Runs all unit tests'
+    include '**/UnitTestSuite.class'  
+}
+
 task integrationTest(type: Test) {
     group 'Verification'
     description 'Runs all integration tests'
     include '**/IntegrationTestSuite.class'  
 }
 
-task unitTest(type: Test) {
+task functionalTest(type: Test) {
     group 'Verification'
-    description 'Runs all unit tests'
-    include '**/UnitTestSuite.class'  
+    description 'Runs all functional tests'
+    include '**/FunctionalTestSuite.class'  
 }
 
 test {
