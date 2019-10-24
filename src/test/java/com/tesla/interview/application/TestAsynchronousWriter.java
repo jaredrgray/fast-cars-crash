@@ -146,9 +146,8 @@ public class TestAsynchronousWriter extends InterviewTestCase {
 
     Future<Void> future = executorService.submit(task);
     underTest.close();
-    assertTrue(executorService.isShutdown());
-    assertFalse(executorService.isTerminated());
     future.get();
+    assertTrue(executorService.isShutdown());
   }
 
   @Test
@@ -171,8 +170,7 @@ public class TestAsynchronousWriter extends InterviewTestCase {
   @Test
   @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
   @SuppressFBWarnings("SIC_INNER_SHOULD_BE_STATIC_ANON")
-  void testCloseExecutorFailPath()
-      throws InterruptedException, BrokenBarrierException, ExecutionException {
+  void testCloseExecutorFailPath() throws InterruptedException, ExecutionException {
     ExecutorService executorService = Executors.newSingleThreadExecutor();
     CyclicBarrier barrier = new CyclicBarrier(2);
     Callable<Void> task = new Callable<Void>() {
@@ -199,10 +197,13 @@ public class TestAsynchronousWriter extends InterviewTestCase {
 
     assertTrue(underTest.isClosed.get());
     assertFalse(underTest.scheduler.isAlive());
-    assertTrue(underTest.executor.isShutdown());
-    assertFalse(underTest.executor.isTerminated());
-    barrier.await();
+    try {
+      barrier.await();
+    } catch (BrokenBarrierException e) {
+      // this may happen when the thread is forcibly shut down; continue
+    }
     future.get();
+    assertTrue(underTest.executor.isShutdown());
   }
 
   @Test

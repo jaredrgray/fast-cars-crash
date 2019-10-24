@@ -103,7 +103,6 @@ public class TestAggregateWriter extends InterviewTestCase {
       if (underTest != null) {
         underTest.close();
       }
-      assertTrue(file.delete());
     }
   }
 
@@ -135,21 +134,24 @@ public class TestAggregateWriter extends InterviewTestCase {
     AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
     AggregateSample sampleMock = mock(AggregateSample.class);
 
-    String dataToWrite = "POOP";
-    doReturn(dataToWrite).when(sampleMock).toString();
-    underTest.writeSample(sampleMock);
-    verify(writerSpy).write(eq(dataToWrite));
-    underTest.close();
+    try {
+      String dataToWrite = "POOP";
+      doReturn(dataToWrite).when(sampleMock).toString();
+      underTest.writeSample(sampleMock);
+      verify(writerSpy).write(eq(dataToWrite));
+    } finally {
+      underTest.close();
+    }
   }
 
   @Test
   @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT")
   void testWriteSucceedsWithMultipleWrites(TestInfo testInfo) throws IOException {
     File file = createTempFile(testInfo).toFile();
+    BufferedWriter writerSpy =
+        spy(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
+    AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
     try {
-      BufferedWriter writerSpy = spy(
-          new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), Charsets.UTF_8)));
-      AggregateSampleWriter underTest = AggregateSampleWriter.withWriterMock(writerSpy);
       AggregateSample sampleMock = mock(AggregateSample.class);
 
       for (int i = 0; i < 10; i++) {
@@ -158,10 +160,8 @@ public class TestAggregateWriter extends InterviewTestCase {
         underTest.writeSample(sampleMock);
         verify(writerSpy).write(eq(dataToWrite));
       }
-
-      underTest.close();
     } finally {
-      assertTrue(file.delete());
+      underTest.close();
     }
   }
 

@@ -204,7 +204,7 @@ public class AsynchronousWriter implements Closeable {
   final AtomicBoolean isClosed = new AtomicBoolean(false);
   final AtomicInteger numWriteTasksCompleted = new AtomicInteger(0);
   final AtomicInteger numWriteTasksScheduled = new AtomicInteger(0);
-  
+
   /**
    * Canonical constructor.
    * 
@@ -293,6 +293,9 @@ public class AsynchronousWriter implements Closeable {
       if (notTerminated.get()) {
         LOG.warn(
             String.format("Could not shut down executor service within %s", executorWaitDuration));
+        List<Runnable> stragglers = executor.shutdownNow();
+        LOG.warn(String.format("Cancelled execution of scheduled task -- count: %d",
+            stragglers.size()));
       } else {
         LOG.info(
             String.format("Shut down executor service successfully in %s", executorWaitDuration));
