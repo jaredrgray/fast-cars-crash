@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.tesla.interview.io.AggregateSampleWriter;
 import com.tesla.interview.model.AggregateSample;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.prometheus.client.Counter;
 import java.io.Closeable;
 import java.io.File;
 import java.nio.file.Paths;
@@ -38,7 +39,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -71,10 +71,9 @@ public class AsynchronousWriter implements Closeable {
         if (Instant.now().isAfter(nextPrintTime)) {
           if (LOG.isInfoEnabled()) {
             StringBuilder message = new StringBuilder("progress -- ");
-            message.append(
-                String.format("numWriteTasksScheduled: %d", numWriteTasksScheduled.intValue()));
+            message.append(String.format("numWriteTasksScheduled: %s", scheduledWriteTasks.get()));
             message.append(", ");
-            message.append(String.format("numCompleted: %d", numWriteTasksCompleted.intValue()));
+            message.append(String.format("numCompleted: %s", completedWriteTasks.get()));
             LOG.info(message.toString());
           }
           Duration randomizedWait =
@@ -101,7 +100,7 @@ public class AsynchronousWriter implements Closeable {
               LOG.debug("END   -- bufferHasTask.await()");
             }
           } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            // we were deliberately interrupted; good time to check again
           }
         }
 
@@ -142,7 +141,7 @@ public class AsynchronousWriter implements Closeable {
       AggregateSampleWriter writer = pathToWriter.getOrDefault(path, null /* defaultValue */);
       if (path != null && writer != null) {
         writer.writeSample(sample);
-        numWriteTasksCompleted.incrementAndGet();
+        completedWriteTasks.inc();
         return null /* success! */;
       } else {
         throw new IllegalArgumentException(
@@ -174,7 +173,7 @@ public class AsynchronousWriter implements Closeable {
      */
     void scheduledHook(Future<WriteTask> taskFuture) {
       if (scheduled.compareAndSet(null, taskFuture)) {
-        numWriteTasksScheduled.incrementAndGet();
+        scheduledWriteTasks.inc();
         awaitingThread.interrupt();
       } else {
         throw new IllegalStateException("task scheduled more than once");
@@ -195,8 +194,11 @@ public class AsynchronousWriter implements Closeable {
   final Condition bufferHasRoom = bufferLock.newCondition();
   final Condition bufferHasTask = bufferLock.newCondition();
   final AtomicBoolean isClosed = new AtomicBoolean(false);
-  final AtomicInteger numWriteTasksCompleted = new AtomicInteger(0);
-  final AtomicInteger numWriteTasksScheduled = new AtomicInteger(0);
+
+  final Counter completedWriteTasks = Counter
+      .build("completedWriteTasks", "write tasks completed").create();
+  final Counter scheduledWriteTasks =
+      Counter.build("scheduledWriteTasks", "write tasks scheduled").create();
 
   final int bufferSize;
   final ExecutorService executor;

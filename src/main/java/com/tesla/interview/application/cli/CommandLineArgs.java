@@ -45,6 +45,10 @@ public class CommandLineArgs {
       validateValueWith = ExistingReadableDirectory.class)
   String outputDirectory;
 
+  @Parameter(names = {"--metrics-endpoint", "-m"}, required = false,
+      description = "Address of Prometheus metrics gateway (format: Hostname:Port)")
+  String metricsEndpoint;
+
   @Parameter(names = {"--help", "-h"}, description = "Display usage")
   boolean isHelpCommand = false;
 }

@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -29,7 +30,10 @@ import com.tesla.interview.model.IntegerHashtag;
 import com.tesla.interview.model.MeasurementSample;
 import com.tesla.interview.tests.InterviewTestCase;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.prometheus.client.CollectorRegistry;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashSet;
@@ -41,8 +45,23 @@ import org.junit.jupiter.api.TestInfo;
 
 public class TestInteviewApplication extends InterviewTestCase {
 
-  private static final int VALID_QUEUE_SIZE = 1;
-  private static final Duration VALID_POLL_DURATION = Duration.ofSeconds(1);
+  private static final Logger LOG;
+  private static final int VALID_QUEUE_SIZE;
+  private static final Duration VALID_POLL_DURATION;
+  private static final URI VALID_ENDPOINT;
+  private static final CollectorRegistry SPY_REGISTRY;
+
+  static {
+    try {
+      LOG = getLogger(TestInteviewApplication.class);
+      VALID_QUEUE_SIZE = 1;
+      VALID_POLL_DURATION = Duration.ofSeconds(1);
+      VALID_ENDPOINT = new URI("http://127.0.0.1:1234");
+      SPY_REGISTRY = spy(CollectorRegistry.class);
+    } catch (URISyntaxException e) {
+      throw new IllegalStateException("unexpected syntax error");
+    }
+  }
 
   private static class Pair<T> {
     final T good;
@@ -53,8 +72,6 @@ public class TestInteviewApplication extends InterviewTestCase {
       this.bad = bad;
     }
   }
-
-  private static final Logger LOG = getLogger(TestInteviewApplication.class);
 
   @Test
   void testAggregateMeasurementNegative() {
@@ -87,7 +104,7 @@ public class TestInteviewApplication extends InterviewTestCase {
     try {
       new InterviewApplication(1 /* numWriteThreads */, 1 /* maxFileHandles */,
           Lists.newArrayList("valid"), "" /* inputFilePath */, VALID_QUEUE_SIZE,
-          VALID_POLL_DURATION);
+          VALID_POLL_DURATION, VALID_ENDPOINT, SPY_REGISTRY);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains("must be non-empty"));
@@ -109,18 +126,25 @@ public class TestInteviewApplication extends InterviewTestCase {
     Pair<String> inputFilePath = new Pair<>("valid", null /* invalid */);
     Pair<Integer> queueSize = new Pair<>(10, -1);
     Pair<Duration> pollDuration = new Pair<>(VALID_POLL_DURATION, null);
+    Pair<URI> metricsEndpoint = new Pair<>(VALID_ENDPOINT, null);
+    Pair<CollectorRegistry> metricsRegistry = new Pair<>(SPY_REGISTRY, null);
 
     String methodName = "testConstructorFailsOnInvalidInputs";
-    for (int i = 0; i <= 1 << 5; i++) {
+    int numBits = 8;
+    for (int i = 0; i <= 1 << (numBits - 1); i++) {
       boolean firstBitSet = (i >> 0) % 2 == 1;
       boolean secondBitSet = (i >> 1) % 2 == 1;
       boolean thirdBitSet = (i >> 2) % 2 == 1;
       boolean fourthBitSet = (i >> 3) % 2 == 1;
       boolean fifthBitSet = (i >> 4) % 2 == 1;
       boolean sixthBitSet = (i >> 5) % 2 == 1;
+      boolean seventhBitSet = (i >> 6) % 2 == 1;
+      boolean eigthBitSet = (i >> 7) % 2 == 1;
       LOG.info(String.format(
-          "%s -- i: %d: firstBitSet: %s, secondBitSet: %s, thirdBitSet: %s, fourthBitSet: %s",
-          methodName, i, firstBitSet, secondBitSet, thirdBitSet, fourthBitSet));
+          "%s -- i: %d: firstBitSet: %s, secondBitSet: %s, thirdBitSet: %s, fourthBitSet: %s, ",
+          methodName, i, firstBitSet, secondBitSet, thirdBitSet, fourthBitSet)
+          + String.format("fifthBitSet: %s, sixthBitSet: %s, seventhBitSet: %s, eigthBitSet: %s",
+              fifthBitSet, sixthBitSet, seventhBitSet, eigthBitSet));
 
       try {
         new InterviewApplication(//
@@ -129,7 +153,9 @@ public class TestInteviewApplication extends InterviewTestCase {
             thirdBitSet ? outputFilePaths.bad : outputFilePaths.good,
             fourthBitSet ? inputFilePath.bad : inputFilePath.good,
             fifthBitSet ? queueSize.bad : queueSize.good,
-            sixthBitSet ? pollDuration.bad : pollDuration.good);
+            sixthBitSet ? pollDuration.bad : pollDuration.good,
+            seventhBitSet ? metricsEndpoint.bad : metricsEndpoint.good,
+            eigthBitSet ? metricsRegistry.bad : metricsRegistry.good);
         fail("expected IllegalArgumentException");
       } catch (IllegalArgumentException e) {
         assert (e.getMessage().contains("must"));
@@ -145,7 +171,8 @@ public class TestInteviewApplication extends InterviewTestCase {
 
     InterviewApplication underTest = new InterviewApplication(1 /* numWriteThreads */,
         1 /* maxFileHandles */, Lists.newArrayList(tempOutputFile.toString()),
-        tempInputFile.toString() /* inputFilePath */, VALID_QUEUE_SIZE, VALID_POLL_DURATION);
+        tempInputFile.toString() /* inputFilePath */, VALID_QUEUE_SIZE, VALID_POLL_DURATION,
+        VALID_ENDPOINT, SPY_REGISTRY);
     assertEquals(1, underTest.partitionNumToThreadNo.size());
   }
 
@@ -161,9 +188,10 @@ public class TestInteviewApplication extends InterviewTestCase {
       assertTrue(p.toFile().delete());
     }
     int numWriteThreads = 1;
-    InterviewApplication underTest = new InterviewApplication(numWriteThreads,
-        numWriteThreads /* maxFileHandles */, outputFilesAsStrings,
-        tempInputFile.toString() /* inputFilePath */, VALID_QUEUE_SIZE, VALID_POLL_DURATION);
+    InterviewApplication underTest =
+        new InterviewApplication(numWriteThreads, numWriteThreads /* maxFileHandles */,
+            outputFilesAsStrings, tempInputFile.toString() /* inputFilePath */, VALID_QUEUE_SIZE,
+            VALID_POLL_DURATION, VALID_ENDPOINT, SPY_REGISTRY);
     assertEquals(tempOutputFiles.size(), underTest.partitionNumToThreadNo.size());
     assertEquals(numWriteThreads, underTest.threadNumToWriter.size());
   }
@@ -183,9 +211,10 @@ public class TestInteviewApplication extends InterviewTestCase {
     }
 
     int numWriteThreads = 3;
-    InterviewApplication underTest = new InterviewApplication(numWriteThreads,
-        numWriteThreads /* maxFileHandles */, outputFilesAsStrings,
-        tempInputFile.toString() /* inputFilePath */, VALID_QUEUE_SIZE, VALID_POLL_DURATION);
+    InterviewApplication underTest =
+        new InterviewApplication(numWriteThreads, numWriteThreads /* maxFileHandles */,
+            outputFilesAsStrings, tempInputFile.toString() /* inputFilePath */, VALID_QUEUE_SIZE,
+            VALID_POLL_DURATION, VALID_ENDPOINT, SPY_REGISTRY);
     assertEquals(tempOutputFiles.size(), underTest.partitionNumToThreadNo.size());
     assertEquals(numWriteThreads, underTest.threadNumToWriter.size());
 
@@ -214,7 +243,8 @@ public class TestInteviewApplication extends InterviewTestCase {
   void testConstructorNegativeFileHandles() {
     try {
       new InterviewApplication(1 /* numWriteThreads */, -1 /* maxFileHandles */,
-          Lists.newArrayList("valid"), "valid", VALID_QUEUE_SIZE, VALID_POLL_DURATION);
+          Lists.newArrayList("valid"), "valid", VALID_QUEUE_SIZE, VALID_POLL_DURATION,
+          VALID_ENDPOINT, SPY_REGISTRY);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains("must be positive"));
@@ -225,7 +255,8 @@ public class TestInteviewApplication extends InterviewTestCase {
   void testConstructorZeroFileHandles() {
     try {
       new InterviewApplication(1 /* numWriteThreads */, 0 /* maxFileHandles */,
-          Lists.newArrayList("valid"), "valid", VALID_QUEUE_SIZE, VALID_POLL_DURATION);
+          Lists.newArrayList("valid"), "valid", VALID_QUEUE_SIZE, VALID_POLL_DURATION,
+          VALID_ENDPOINT, SPY_REGISTRY);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains("must be positive"));

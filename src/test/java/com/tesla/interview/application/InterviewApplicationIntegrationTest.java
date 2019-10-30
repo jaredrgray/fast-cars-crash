@@ -31,7 +31,10 @@ import com.tesla.interview.model.IntegerHashtag;
 import com.tesla.interview.model.MeasurementSample;
 import com.tesla.interview.tests.InterviewTestCase;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.prometheus.client.CollectorRegistry;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -65,10 +68,24 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
       return writeSample;
     }
   }
-  
-  private static final Random RAND = new Random(0xdeadbeef);
-  private static final int QUEUE_SIZE = 100;
-  private static final Duration POLL_DURATION = Duration.ofSeconds(1);
+
+  private static final Random RAND;
+  private static final int QUEUE_SIZE;
+  private static final Duration POLL_DURATION;
+  private static final CollectorRegistry METRICS_REGISTRY;
+  private static final URI METRICS_ENDPOINT;
+
+  static {
+    try {
+      RAND = new Random(0xdeadbeef);
+      QUEUE_SIZE = 100;
+      POLL_DURATION = Duration.ofSeconds(1);
+      METRICS_REGISTRY = new CollectorRegistry();
+      METRICS_ENDPOINT = new URI("http://127.0.0.1:9090");
+    } catch (URISyntaxException e) {
+      throw new IllegalStateException("unexpected syntax error", e);
+    }
+  }
 
   /**
    * Build maps to inject for {@link InterviewApplication} construction.
@@ -215,8 +232,9 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
     }
 
     // build and run the app
-    InterviewApplication underTest = new InterviewApplication(partitionNumToThreadNo, mockReader,
-        threadNoToWriter, Queues.newArrayDeque(), QUEUE_SIZE, POLL_DURATION);
+    InterviewApplication underTest =
+        new InterviewApplication(partitionNumToThreadNo, mockReader, threadNoToWriter,
+            Queues.newArrayDeque(), QUEUE_SIZE, POLL_DURATION, METRICS_ENDPOINT, METRICS_REGISTRY);
     stubHasNext(numSamples, mockReader);
     List<MeasurementSample> ordered = stubNext(numSamples, numPartitions, mockReader);
     underTest.call();

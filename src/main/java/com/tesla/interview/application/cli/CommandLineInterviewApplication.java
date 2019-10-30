@@ -21,6 +21,9 @@ import com.beust.jcommander.ParameterException;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 import com.tesla.interview.application.InterviewApplication;
+import io.prometheus.client.CollectorRegistry;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -42,21 +45,26 @@ public class CommandLineInterviewApplication {
       List<String> outputFilePaths = getOutputFiles(parsedArguments.numPartitions, outputDirectory);
       return new InterviewApplication(parsedArguments.numWriteThreads,
           Integer.MAX_VALUE /* TODO: maxFileHandles */, outputFilePaths, parsedArguments.inputFile,
-          queueSize, DEFAULT_POLL_DURATION);
+          queueSize, DEFAULT_POLL_DURATION, DEFAULT_ENDPOINT, DEFAULT_REGISTRY);
     }
   }
 
-  private static final String OUTPUT_FILE_FORMAT = "output-file-%d.csv";
-  private static final int DEFAULT_QUEUE_SIZE = 100;
-  private static final Duration DEFAULT_POLL_DURATION = Duration.ofSeconds(1);
+  private static final String OUTPUT_FILE_FORMAT;
+  private static final int DEFAULT_QUEUE_SIZE;
+  private static final Duration DEFAULT_POLL_DURATION;
+  private static final URI DEFAULT_ENDPOINT;
+  private static final CollectorRegistry DEFAULT_REGISTRY;
 
-  /**
-   * Run the application from the command line.
-   * 
-   * @param args command-line arguments
-   */
-  public static void main(String[] args) {
-    executeWrapper(new CommandLineInterviewApplication(args, DEFAULT_QUEUE_SIZE));
+  static {
+    try {
+      OUTPUT_FILE_FORMAT = "output-file-%d.csv";
+      DEFAULT_QUEUE_SIZE = 100;
+      DEFAULT_POLL_DURATION = Duration.ofSeconds(1);
+      DEFAULT_ENDPOINT = new URI("http://127.0.0.1:9090");
+      DEFAULT_REGISTRY = new CollectorRegistry();
+    } catch (URISyntaxException e) {
+      throw new IllegalStateException("unexpected syntax error");
+    }
   }
 
   /**
@@ -79,20 +87,44 @@ public class CommandLineInterviewApplication {
         // just printing help
         cliApp.commander.usage();
       }
-    } catch (RuntimeException e) {
+    } catch (Exception e) {
       if (e instanceof ParameterException || e instanceof IllegalArgumentException) {
         // validation failed; print usage and exception to console
         cliApp.commander.usage();
         cliApp.commander.getConsole().println(e.getMessage());
       } else {
-        // unexpected exception; dump stack trace
-        cliApp.commander.getConsole()
-            .println(String.format("unexpected error: %s", e.getMessage()));
-        consoleTrace(cliApp.commander.getConsole(), e);
-        throw e;
+        handleUnexpectedException(cliApp, e);
       }
     }
 
+  }
+
+  /**
+   * Run the application from the command line.
+   * 
+   * @param args command-line arguments
+   */
+  public static void main(String[] args) {
+    executeWrapper(new CommandLineInterviewApplication(args, DEFAULT_QUEUE_SIZE));
+  }
+
+  /**
+   * Dump stack trace to console.
+   * 
+   * @param cliApp application whose execution failed
+   * @param e unexpected exception causing failure
+   */
+  private static void handleUnexpectedException(CommandLineInterviewApplication cliApp,
+      Exception e) {
+    cliApp.commander.getConsole().println(String.format("unexpected error: %s", e.getMessage()));
+    consoleTrace(cliApp.commander.getConsole(), e);
+    if (!(e instanceof RuntimeException)) {
+      // wrap the exception to avoid an awful 'throws Exception' clause
+      throw new RuntimeException("Unexpected error", e);
+    } else {
+      // rethrow to caller
+      throw (RuntimeException) e;
+    }
   }
 
   /**

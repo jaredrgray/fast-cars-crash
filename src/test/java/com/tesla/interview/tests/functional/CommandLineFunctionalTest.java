@@ -60,39 +60,39 @@ public class CommandLineFunctionalTest extends InterviewTestCase {
     CommandLineInterviewApplication app = new CommandLineInterviewApplication(args, QUEUE_SIZE);
     CommandLineInterviewApplication.executeWrapper(app);
 
-    Map<Integer, Integer> expectedCounts = Maps.newHashMap();
-    expectedCounts.put(1, 7572);
-    expectedCounts.put(2, 7387);
-    expectedCounts.put(3, 7568);
-    expectedCounts.put(4, 7554);
-    expectedCounts.put(5, 7440);
-    expectedCounts.put(6, 7389);
-    expectedCounts.put(7, 7484);
-    expectedCounts.put(8, 7604);
-    expectedCounts.put(9, 7379);
-    expectedCounts.put(10, 7389);
-    expectedCounts.put(11, 7597);
-    expectedCounts.put(12, 7568);
-    expectedCounts.put(13, 7489);
-    expectedCounts.put(14, 7599);
-    expectedCounts.put(15, 7577);
-    expectedCounts.put(16, 7504);
-    expectedCounts.put(17, 7534);
-    expectedCounts.put(18, 7509);
-    expectedCounts.put(19, 7402);
-    expectedCounts.put(20, 7455);
+    Map<Integer, Integer> partitionNumToNumLinesExpected = Maps.newHashMap();
+    partitionNumToNumLinesExpected.put(1, 7572);
+    partitionNumToNumLinesExpected.put(2, 7387);
+    partitionNumToNumLinesExpected.put(3, 7568);
+    partitionNumToNumLinesExpected.put(4, 7554);
+    partitionNumToNumLinesExpected.put(5, 7440);
+    partitionNumToNumLinesExpected.put(6, 7389);
+    partitionNumToNumLinesExpected.put(7, 7484);
+    partitionNumToNumLinesExpected.put(8, 7604);
+    partitionNumToNumLinesExpected.put(9, 7379);
+    partitionNumToNumLinesExpected.put(10, 7389);
+    partitionNumToNumLinesExpected.put(11, 7597);
+    partitionNumToNumLinesExpected.put(12, 7568);
+    partitionNumToNumLinesExpected.put(13, 7489);
+    partitionNumToNumLinesExpected.put(14, 7599);
+    partitionNumToNumLinesExpected.put(15, 7577);
+    partitionNumToNumLinesExpected.put(16, 7504);
+    partitionNumToNumLinesExpected.put(17, 7534);
+    partitionNumToNumLinesExpected.put(18, 7509);
+    partitionNumToNumLinesExpected.put(19, 7402);
+    partitionNumToNumLinesExpected.put(20, 7455);
 
     String[] filesCreated = outputDir.list();
     assertEquals(NUM_PARTITIONS, filesCreated.length);
     for (String outputFile : filesCreated) {
       try {
-        String s = outputFile.substring(OUTPUT_FILE.length(),
+        String partitionStr = outputFile.substring(OUTPUT_FILE.length(),
             outputFile.length() - CSV_EXTENSION.length());
-        Integer key = Integer.valueOf(s);
-        assertNotNull(key);
-        assertTrue(expectedCounts.containsKey(key));
+        Integer partitionNum = Integer.valueOf(partitionStr);
+        assertNotNull(partitionNum);
+        assertTrue(partitionNumToNumLinesExpected.containsKey(partitionNum));
         int result = countLines(outputDir, outputFile);
-        assertEquals(expectedCounts.get(key), result);
+        assertEquals(partitionNumToNumLinesExpected.get(partitionNum), result);
       } finally {
         assertTrue(outputDir.toPath().resolve(outputFile).toFile().delete());
       }

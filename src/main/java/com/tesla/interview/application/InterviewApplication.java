@@ -25,7 +25,9 @@ import com.tesla.interview.io.MeasurementSampleReader;
 import com.tesla.interview.model.AggregateSample;
 import com.tesla.interview.model.MeasurementSample;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.prometheus.client.CollectorRegistry;
 import java.io.File;
+import java.net.URI;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
@@ -146,7 +148,7 @@ public class InterviewApplication implements Callable<Void> {
         }
         write.get();
         if (LOG.isEnabled(Level.DEBUG)) {
-          LOG.debug("START -- write.get()");
+          LOG.debug("END   -- write.get()");
         }
       } catch (InterruptedException e) {
         // no problem!
@@ -247,11 +249,11 @@ public class InterviewApplication implements Callable<Void> {
       LOG.info(String.format("all write tasks spawned -- numSpawned: %d", spawnCount));
     }
   }
-  
+
   private static final Logger LOG = getLogger(InterviewApplication.class);
   private static final Duration PRINT_INTERVAL = Duration.ofSeconds(3); // TODO make configurable
   private static final Random RANDOM = new Random();
-  
+
   /**
    * Construct an aggregate from a sample.
    * <p/>
@@ -277,14 +279,16 @@ public class InterviewApplication implements Callable<Void> {
   private final TaskConsumer consumer = new TaskConsumer();
   private final TaskProducer producer = new TaskProducer();
   private final ExecutorService executor = Executors.newFixedThreadPool(2 /* nThreads */);
-  
+
   final Map<Integer, Integer> partitionNumToThreadNo; // note: partitions indexed from 0
   final MeasurementSampleReader reader;
   final int maxNumTasks;
   final Map<Integer, AsynchronousWriter> threadNumToWriter;
   final Queue<Future<WriteTask>> pendingTasks;
   final Duration pollDuration;
-  
+  final URI metricsEndpoint;
+  final CollectorRegistry metricsRegistry;
+
   /**
    * Canonical constructor.
    * 
@@ -296,7 +300,8 @@ public class InterviewApplication implements Callable<Void> {
    * @param pollDuration max. amount of time to wait between polls
    */
   public InterviewApplication(int numWriteThreads, int maxFileHandles, List<String> outputFilePaths,
-      String inputFilePath, int queueSize, Duration pollDuration) {
+      String inputFilePath, int queueSize, Duration pollDuration, URI metricsEndpoint,
+      CollectorRegistry metricsRegistry) {
 
     /* BEGIN: validate input */
     if (numWriteThreads <= 0) {
@@ -332,6 +337,8 @@ public class InterviewApplication implements Callable<Void> {
     this.maxNumTasks = queueSize;
     this.pendingTasks = new ArrayDeque<Future<WriteTask>>(maxNumTasks);
     this.pollDuration = pollDuration;
+    this.metricsEndpoint = metricsEndpoint;
+    this.metricsRegistry = metricsRegistry;
 
     // construct the reader and list of write threads from validated input
     int maxPartitionsPerThread =
@@ -380,7 +387,9 @@ public class InterviewApplication implements Callable<Void> {
       Map<Integer, AsynchronousWriter> threadNumToWriter, //
       Queue<Future<WriteTask>> taskQueue, //
       int maxQueueSize, //
-      Duration pollDuration) {
+      Duration pollDuration, //
+      URI metricsEndpoint, //
+      CollectorRegistry metricsRegistry) {
 
     this.partitionNumToThreadNo = partitionNoToThreadNo;
     this.reader = reader;
@@ -388,6 +397,8 @@ public class InterviewApplication implements Callable<Void> {
     this.pendingTasks = taskQueue;
     this.maxNumTasks = maxQueueSize;
     this.pollDuration = pollDuration;
+    this.metricsEndpoint = metricsEndpoint;
+    this.metricsRegistry = metricsRegistry;
   }
 
   @Override
@@ -401,6 +412,12 @@ public class InterviewApplication implements Callable<Void> {
     // wait till we're done
     try {
       producerFuture.get();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("unexpected error", e);
+    }
+    try {
       consumerFuture.get();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
