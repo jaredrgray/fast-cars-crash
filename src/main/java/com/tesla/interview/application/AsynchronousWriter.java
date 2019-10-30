@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.tesla.interview.io.AggregateSampleWriter;
 import com.tesla.interview.model.AggregateSample;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.Counter;
 import java.io.Closeable;
 import java.io.File;
@@ -195,17 +196,16 @@ public class AsynchronousWriter implements Closeable {
   final Condition bufferHasTask = bufferLock.newCondition();
   final AtomicBoolean isClosed = new AtomicBoolean(false);
 
-  final Counter completedWriteTasks = Counter
-      .build("completedWriteTasks", "write tasks completed").create();
-  final Counter scheduledWriteTasks =
-      Counter.build("scheduledWriteTasks", "write tasks scheduled").create();
-
   final int bufferSize;
   final ExecutorService executor;
   final Duration maxWaitDuration;
   final Map<Integer, String> partitionNumToPath;
   final Map<String, AggregateSampleWriter> pathToWriter;
   final Duration pollDelay;
+  final CollectorRegistry metricsRegistry;
+
+  final Counter completedWriteTasks;
+  final Counter scheduledWriteTasks;
 
   /**
    * Canonical constructor.
@@ -213,7 +213,8 @@ public class AsynchronousWriter implements Closeable {
    * @param threadPoolSize number of threads for this writer
    * @param partitionNoToPath map from partition number to file system path
    */
-  public AsynchronousWriter(int threadPoolSize, Map<Integer, String> partitionNoToPath) {
+  public AsynchronousWriter(int threadPoolSize, Map<Integer, String> partitionNoToPath,
+      CollectorRegistry metricsRegistry) {
     if (threadPoolSize <= 0) {
       throw new IllegalArgumentException("threadPoolSize must be positive");
     }
@@ -230,8 +231,13 @@ public class AsynchronousWriter implements Closeable {
     this.pathToWriter = Maps.newHashMap();
     this.bufferedWrites = new ArrayDeque<>();
     this.bufferSize = threadPoolSize;
+    this.metricsRegistry = metricsRegistry;
     this.maxWaitDuration = DEFAULT_MAX_WAIT;
     this.pollDelay = DEFAULT_POLL_DELAY;
+    this.completedWriteTasks = Counter.build().name("completedWriteTasks")
+        .help("write tasks scheduled").register(metricsRegistry);
+    this.scheduledWriteTasks = Counter.build().name("scheduledWriteTasks")
+        .help("write tasks scheduled").register(metricsRegistry);
 
     // open files and track association between partition number and output file
     for (String path : partitionNoToPath.values()) {
@@ -265,7 +271,8 @@ public class AsynchronousWriter implements Closeable {
       Queue<WriteTask> bufferedWrites, //
       Duration maxWaitDuration, //
       Duration pollDelay, //
-      int bufferSize) {
+      int bufferSize, //
+      CollectorRegistry metricsRegistry) {
 
     this.executor = executor;
     this.partitionNumToPath = partitionNumToPath;
@@ -275,6 +282,11 @@ public class AsynchronousWriter implements Closeable {
     this.maxWaitDuration = maxWaitDuration;
     this.pollDelay = pollDelay;
     this.bufferSize = bufferSize;
+    this.metricsRegistry = metricsRegistry;
+    this.completedWriteTasks = Counter.build().name("completedWriteTasks")
+        .help("write tasks scheduled").register(metricsRegistry);
+    this.scheduledWriteTasks = Counter.build().name("scheduledWriteTasks")
+        .help("write tasks scheduled").register(metricsRegistry);
   }
 
   @Override

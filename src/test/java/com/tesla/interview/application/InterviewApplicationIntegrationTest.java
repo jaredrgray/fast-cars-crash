@@ -44,6 +44,7 @@ import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Future;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestInfo;
@@ -58,7 +59,7 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
     Queue<String> ids = new ArrayDeque<>();
 
     public AsynchronousWriterSpy(int threadPoolSize, Map<Integer, String> partitionNoToPath) {
-      super(threadPoolSize, partitionNoToPath);
+      super(threadPoolSize, partitionNoToPath, new CollectorRegistry());
     }
 
     @Override
@@ -72,7 +73,7 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
   private static final Random RAND;
   private static final int QUEUE_SIZE;
   private static final Duration POLL_DURATION;
-  private static final CollectorRegistry METRICS_REGISTRY;
+  private static final Supplier<CollectorRegistry> REGISTRY_SUPPLIER;
   private static final URI METRICS_ENDPOINT;
 
   static {
@@ -80,7 +81,7 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
       RAND = new Random(0xdeadbeef);
       QUEUE_SIZE = 100;
       POLL_DURATION = Duration.ofSeconds(1);
-      METRICS_REGISTRY = new CollectorRegistry();
+      REGISTRY_SUPPLIER = () -> new CollectorRegistry();
       METRICS_ENDPOINT = new URI("http://127.0.0.1:9090");
     } catch (URISyntaxException e) {
       throw new IllegalStateException("unexpected syntax error", e);
@@ -234,7 +235,7 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
     // build and run the app
     InterviewApplication underTest =
         new InterviewApplication(partitionNumToThreadNo, mockReader, threadNoToWriter,
-            Queues.newArrayDeque(), QUEUE_SIZE, POLL_DURATION, METRICS_ENDPOINT, METRICS_REGISTRY);
+            Queues.newArrayDeque(), QUEUE_SIZE, POLL_DURATION, METRICS_ENDPOINT, REGISTRY_SUPPLIER);
     stubHasNext(numSamples, mockReader);
     List<MeasurementSample> ordered = stubNext(numSamples, numPartitions, mockReader);
     underTest.call();

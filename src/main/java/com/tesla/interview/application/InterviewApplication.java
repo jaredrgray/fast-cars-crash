@@ -18,7 +18,6 @@ import static com.tesla.interview.application.ApplicationTools.logTrace;
 import static java.lang.Math.ceil;
 import static java.lang.Math.floorMod;
 import static org.apache.logging.log4j.LogManager.getLogger;
-
 import com.google.common.collect.Maps;
 import com.tesla.interview.application.AsynchronousWriter.WriteTask;
 import com.tesla.interview.io.MeasurementSampleReader;
@@ -46,6 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 
@@ -287,7 +287,7 @@ public class InterviewApplication implements Callable<Void> {
   final Queue<Future<WriteTask>> pendingTasks;
   final Duration pollDuration;
   final URI metricsEndpoint;
-  final CollectorRegistry metricsRegistry;
+  final Supplier<CollectorRegistry> registrySupplier;
 
   /**
    * Canonical constructor.
@@ -301,7 +301,7 @@ public class InterviewApplication implements Callable<Void> {
    */
   public InterviewApplication(int numWriteThreads, int maxFileHandles, List<String> outputFilePaths,
       String inputFilePath, int queueSize, Duration pollDuration, URI metricsEndpoint,
-      CollectorRegistry metricsRegistry) {
+      Supplier<CollectorRegistry> metricsRegistry) {
 
     /* BEGIN: validate input */
     if (numWriteThreads <= 0) {
@@ -338,7 +338,7 @@ public class InterviewApplication implements Callable<Void> {
     this.pendingTasks = new ArrayDeque<Future<WriteTask>>(maxNumTasks);
     this.pollDuration = pollDuration;
     this.metricsEndpoint = metricsEndpoint;
-    this.metricsRegistry = metricsRegistry;
+    this.registrySupplier = metricsRegistry;
 
     // construct the reader and list of write threads from validated input
     int maxPartitionsPerThread =
@@ -363,7 +363,9 @@ public class InterviewApplication implements Callable<Void> {
         partitionNumToPath.put(partitionNo, ourPath);
         partitionNumToThreadNo.put(partitionNo, threadNo);
       }
-      AsynchronousWriter writer = new AsynchronousWriter(numWriteThreads, partitionNumToPath);
+      new CollectorRegistry();
+      AsynchronousWriter writer =
+          new AsynchronousWriter(numWriteThreads, partitionNumToPath, metricsRegistry.get());
       writer.startScheduler();
       threadNumToWriter.put(threadNo, writer);
     }
@@ -389,7 +391,7 @@ public class InterviewApplication implements Callable<Void> {
       int maxQueueSize, //
       Duration pollDuration, //
       URI metricsEndpoint, //
-      CollectorRegistry metricsRegistry) {
+      Supplier<CollectorRegistry> registrySupplier) {
 
     this.partitionNumToThreadNo = partitionNoToThreadNo;
     this.reader = reader;
@@ -398,7 +400,7 @@ public class InterviewApplication implements Callable<Void> {
     this.maxNumTasks = maxQueueSize;
     this.pollDuration = pollDuration;
     this.metricsEndpoint = metricsEndpoint;
-    this.metricsRegistry = metricsRegistry;
+    this.registrySupplier = registrySupplier;
   }
 
   @Override

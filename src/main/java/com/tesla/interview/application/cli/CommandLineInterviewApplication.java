@@ -22,8 +22,6 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 import com.tesla.interview.application.InterviewApplication;
 import io.prometheus.client.CollectorRegistry;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -45,26 +43,21 @@ public class CommandLineInterviewApplication {
       List<String> outputFilePaths = getOutputFiles(parsedArguments.numPartitions, outputDirectory);
       return new InterviewApplication(parsedArguments.numWriteThreads,
           Integer.MAX_VALUE /* TODO: maxFileHandles */, outputFilePaths, parsedArguments.inputFile,
-          queueSize, DEFAULT_POLL_DURATION, DEFAULT_ENDPOINT, DEFAULT_REGISTRY);
+          queueSize, DEFAULT_POLL_DURATION, parsedArguments.metricsEndpoint,
+          DEFAULT_REGISTRY_SUPPLIER);
     }
   }
 
   private static final String OUTPUT_FILE_FORMAT;
   private static final int DEFAULT_QUEUE_SIZE;
   private static final Duration DEFAULT_POLL_DURATION;
-  private static final URI DEFAULT_ENDPOINT;
-  private static final CollectorRegistry DEFAULT_REGISTRY;
+  private static final Supplier<CollectorRegistry> DEFAULT_REGISTRY_SUPPLIER;
 
   static {
-    try {
-      OUTPUT_FILE_FORMAT = "output-file-%d.csv";
-      DEFAULT_QUEUE_SIZE = 100;
-      DEFAULT_POLL_DURATION = Duration.ofSeconds(1);
-      DEFAULT_ENDPOINT = new URI("http://127.0.0.1:9090");
-      DEFAULT_REGISTRY = new CollectorRegistry();
-    } catch (URISyntaxException e) {
-      throw new IllegalStateException("unexpected syntax error");
-    }
+    OUTPUT_FILE_FORMAT = "output-file-%d.csv";
+    DEFAULT_QUEUE_SIZE = 100;
+    DEFAULT_POLL_DURATION = Duration.ofSeconds(1);
+    DEFAULT_REGISTRY_SUPPLIER = () -> new CollectorRegistry();
   }
 
   /**

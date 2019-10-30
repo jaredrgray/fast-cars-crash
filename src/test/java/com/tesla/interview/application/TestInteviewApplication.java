@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -39,29 +38,12 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 public class TestInteviewApplication extends InterviewTestCase {
-
-  private static final Logger LOG;
-  private static final int VALID_QUEUE_SIZE;
-  private static final Duration VALID_POLL_DURATION;
-  private static final URI VALID_ENDPOINT;
-  private static final CollectorRegistry SPY_REGISTRY;
-
-  static {
-    try {
-      LOG = getLogger(TestInteviewApplication.class);
-      VALID_QUEUE_SIZE = 1;
-      VALID_POLL_DURATION = Duration.ofSeconds(1);
-      VALID_ENDPOINT = new URI("http://127.0.0.1:1234");
-      SPY_REGISTRY = spy(CollectorRegistry.class);
-    } catch (URISyntaxException e) {
-      throw new IllegalStateException("unexpected syntax error");
-    }
-  }
 
   private static class Pair<T> {
     final T good;
@@ -70,6 +52,24 @@ public class TestInteviewApplication extends InterviewTestCase {
     Pair(T good, T bad) {
       this.good = good;
       this.bad = bad;
+    }
+  }
+
+  private static final Logger LOG;
+  private static final int VALID_QUEUE_SIZE;
+  private static final Duration VALID_POLL_DURATION;
+  private static final URI VALID_ENDPOINT;
+  private static final Supplier<CollectorRegistry> REGISTRY_SUPPLIER;
+
+  static {
+    try {
+      LOG = getLogger(TestInteviewApplication.class);
+      VALID_QUEUE_SIZE = 1;
+      VALID_POLL_DURATION = Duration.ofSeconds(1);
+      VALID_ENDPOINT = new URI("http://127.0.0.1:1234");
+      REGISTRY_SUPPLIER = () -> new CollectorRegistry();
+    } catch (URISyntaxException e) {
+      throw new IllegalStateException("unexpected syntax error");
     }
   }
 
@@ -104,7 +104,7 @@ public class TestInteviewApplication extends InterviewTestCase {
     try {
       new InterviewApplication(1 /* numWriteThreads */, 1 /* maxFileHandles */,
           Lists.newArrayList("valid"), "" /* inputFilePath */, VALID_QUEUE_SIZE,
-          VALID_POLL_DURATION, VALID_ENDPOINT, SPY_REGISTRY);
+          VALID_POLL_DURATION, VALID_ENDPOINT, REGISTRY_SUPPLIER);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains("must be non-empty"));
@@ -127,7 +127,7 @@ public class TestInteviewApplication extends InterviewTestCase {
     Pair<Integer> queueSize = new Pair<>(10, -1);
     Pair<Duration> pollDuration = new Pair<>(VALID_POLL_DURATION, null);
     Pair<URI> metricsEndpoint = new Pair<>(VALID_ENDPOINT, null);
-    Pair<CollectorRegistry> metricsRegistry = new Pair<>(SPY_REGISTRY, null);
+    Pair<Supplier<CollectorRegistry>> metricsRegistry = new Pair<>(REGISTRY_SUPPLIER, null);
 
     String methodName = "testConstructorFailsOnInvalidInputs";
     int numBits = 8;
@@ -172,7 +172,7 @@ public class TestInteviewApplication extends InterviewTestCase {
     InterviewApplication underTest = new InterviewApplication(1 /* numWriteThreads */,
         1 /* maxFileHandles */, Lists.newArrayList(tempOutputFile.toString()),
         tempInputFile.toString() /* inputFilePath */, VALID_QUEUE_SIZE, VALID_POLL_DURATION,
-        VALID_ENDPOINT, SPY_REGISTRY);
+        VALID_ENDPOINT, REGISTRY_SUPPLIER);
     assertEquals(1, underTest.partitionNumToThreadNo.size());
   }
 
@@ -191,7 +191,7 @@ public class TestInteviewApplication extends InterviewTestCase {
     InterviewApplication underTest =
         new InterviewApplication(numWriteThreads, numWriteThreads /* maxFileHandles */,
             outputFilesAsStrings, tempInputFile.toString() /* inputFilePath */, VALID_QUEUE_SIZE,
-            VALID_POLL_DURATION, VALID_ENDPOINT, SPY_REGISTRY);
+            VALID_POLL_DURATION, VALID_ENDPOINT, REGISTRY_SUPPLIER);
     assertEquals(tempOutputFiles.size(), underTest.partitionNumToThreadNo.size());
     assertEquals(numWriteThreads, underTest.threadNumToWriter.size());
   }
@@ -214,7 +214,7 @@ public class TestInteviewApplication extends InterviewTestCase {
     InterviewApplication underTest =
         new InterviewApplication(numWriteThreads, numWriteThreads /* maxFileHandles */,
             outputFilesAsStrings, tempInputFile.toString() /* inputFilePath */, VALID_QUEUE_SIZE,
-            VALID_POLL_DURATION, VALID_ENDPOINT, SPY_REGISTRY);
+            VALID_POLL_DURATION, VALID_ENDPOINT, REGISTRY_SUPPLIER);
     assertEquals(tempOutputFiles.size(), underTest.partitionNumToThreadNo.size());
     assertEquals(numWriteThreads, underTest.threadNumToWriter.size());
 
@@ -244,7 +244,7 @@ public class TestInteviewApplication extends InterviewTestCase {
     try {
       new InterviewApplication(1 /* numWriteThreads */, -1 /* maxFileHandles */,
           Lists.newArrayList("valid"), "valid", VALID_QUEUE_SIZE, VALID_POLL_DURATION,
-          VALID_ENDPOINT, SPY_REGISTRY);
+          VALID_ENDPOINT, REGISTRY_SUPPLIER);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains("must be positive"));
@@ -256,7 +256,7 @@ public class TestInteviewApplication extends InterviewTestCase {
     try {
       new InterviewApplication(1 /* numWriteThreads */, 0 /* maxFileHandles */,
           Lists.newArrayList("valid"), "valid", VALID_QUEUE_SIZE, VALID_POLL_DURATION,
-          VALID_ENDPOINT, SPY_REGISTRY);
+          VALID_ENDPOINT, REGISTRY_SUPPLIER);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains("must be positive"));

@@ -34,6 +34,7 @@ import com.tesla.interview.io.AggregateSampleWriter;
 import com.tesla.interview.model.AggregateSample;
 import com.tesla.interview.tests.InterviewTestCase;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.prometheus.client.CollectorRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -75,6 +76,7 @@ public class TestAsynchronousWriter extends InterviewTestCase {
   private Duration maxWaitDuration;
   private Duration pollDelay;
   private int bufferSize;
+  private CollectorRegistry metricsRegistry;
 
   private void createWriters() {
     allWriters = Lists.newArrayList();
@@ -116,6 +118,7 @@ public class TestAsynchronousWriter extends InterviewTestCase {
     maxWaitDuration = Duration.ofSeconds(1);
     bufferSize = 10;
     pollDelay = Duration.ofMillis(100);
+    metricsRegistry = new CollectorRegistry();
   }
 
   @Test
@@ -124,7 +127,7 @@ public class TestAsynchronousWriter extends InterviewTestCase {
 
     ExecutorService executorService = Executors.newSingleThreadExecutor();
     underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
-        allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
+        allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize, metricsRegistry);
     underTest.startScheduler();
 
     // submit a task that will not complete before close() timeout
@@ -154,7 +157,8 @@ public class TestAsynchronousWriter extends InterviewTestCase {
   void testCloseSuccessPath() {
     createWriters();
     underTest = new AsynchronousWriter(Executors.newSingleThreadExecutor(), partitionNumToPath,
-        pathToWriter, allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
+        pathToWriter, allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize,
+        metricsRegistry);
     underTest.startScheduler();
     underTest.close();
 
@@ -191,7 +195,7 @@ public class TestAsynchronousWriter extends InterviewTestCase {
 
     Future<Void> future = executorService.submit(task);
     underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
-        allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
+        allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize, metricsRegistry);
     underTest.startScheduler();
     underTest.close();
 
@@ -208,7 +212,7 @@ public class TestAsynchronousWriter extends InterviewTestCase {
 
   @Test
   void testConstructorPositive() {
-    underTest = new AsynchronousWriter(1 /* threadPoolSize */, partitionNumToPath);
+    underTest = new AsynchronousWriter(1 /* threadPoolSize */, partitionNumToPath, metricsRegistry);
     underTest.startScheduler();
     assertEquals(1, underTest.bufferSize);
     assertTrue(underTest.scheduler.isAlive());
@@ -223,7 +227,7 @@ public class TestAsynchronousWriter extends InterviewTestCase {
     customMap.put(2, dupPath);
 
     try {
-      underTest = new AsynchronousWriter(1 /* threadPoolSize */, customMap);
+      underTest = new AsynchronousWriter(1 /* threadPoolSize */, customMap, metricsRegistry);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains("Cannot specify identical path"));
@@ -233,7 +237,7 @@ public class TestAsynchronousWriter extends InterviewTestCase {
   @Test
   void testConstructorWithEmptyMapFails() {
     try {
-      underTest = new AsynchronousWriter(1 /* threadPoolSize */, Maps.newHashMap());
+      underTest = new AsynchronousWriter(1 /* threadPoolSize */, Maps.newHashMap(), metricsRegistry);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains(CANNOT_BE_EMPTY));
@@ -243,7 +247,8 @@ public class TestAsynchronousWriter extends InterviewTestCase {
   @Test
   void testConstructorWithEmptyPoolFails() {
     try {
-      underTest = new AsynchronousWriter(0 /* threadPoolSize */, partitionNumToPath);
+      underTest =
+          new AsynchronousWriter(0 /* threadPoolSize */, partitionNumToPath, metricsRegistry);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains(MUST_BE_POSITIVE));
@@ -262,7 +267,7 @@ public class TestAsynchronousWriter extends InterviewTestCase {
     customMap.put(1, pathWithNoFile);
 
     try {
-      underTest = new AsynchronousWriter(1 /* threadPoolSize */, customMap);
+      underTest = new AsynchronousWriter(1 /* threadPoolSize */, customMap, metricsRegistry);
       fail("expected IllegalStateException");
     } catch (IllegalStateException e) {
       assertTrue(e.getMessage().contains("Unable to open"));
@@ -272,7 +277,8 @@ public class TestAsynchronousWriter extends InterviewTestCase {
   @Test
   void testConstructorWithNegativePoolSizeFails() {
     try {
-      underTest = new AsynchronousWriter(-1 /* threadPoolSize */, partitionNumToPath);
+      underTest =
+          new AsynchronousWriter(-1 /* threadPoolSize */, partitionNumToPath, metricsRegistry);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains(MUST_BE_POSITIVE));
@@ -282,7 +288,8 @@ public class TestAsynchronousWriter extends InterviewTestCase {
   @Test
   void testConstructorWithNullMapFails() {
     try {
-      underTest = new AsynchronousWriter(1 /* threadPoolSize */, null /* partitionNoToPath */);
+      underTest = new AsynchronousWriter(1 /* threadPoolSize */, null /* partitionNoToPath */,
+          metricsRegistry);
       fail("expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains(CANNOT_BE_EMPTY));
@@ -294,7 +301,7 @@ public class TestAsynchronousWriter extends InterviewTestCase {
     createWriters();
     ExecutorService executorService = Executors.newSingleThreadExecutor();
     underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
-        allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize);
+        allWriters, bufferQueue, maxWaitDuration, pollDelay, bufferSize, metricsRegistry);
     underTest.startScheduler();
 
     // build the tasks and fire them off
@@ -321,7 +328,7 @@ public class TestAsynchronousWriter extends InterviewTestCase {
     createWriters();
     ExecutorService executorService = Executors.newSingleThreadExecutor();
     underTest = new AsynchronousWriter(executorService, partitionNumToPath, pathToWriter,
-        allWriters, bufferQueue, maxWaitDuration, maxWaitDuration, bufferSize);
+        allWriters, bufferQueue, maxWaitDuration, maxWaitDuration, bufferSize, metricsRegistry);
     underTest.startScheduler();
 
     // build the tasks and fire them off
