@@ -16,11 +16,11 @@ package com.tesla.interview.application.cli;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import com.beust.jcommander.converters.URIConverter;
+import com.beust.jcommander.converters.URLConverter;
 import com.tesla.interview.application.cli.validators.ExistingReadableDirectory;
 import com.tesla.interview.application.cli.validators.ExistingReadableFile;
 import com.tesla.interview.application.cli.validators.RequiredPositiveInteger;
-import java.net.URI;
+import java.net.URL;
 
 /**
  * Command line arguments for CLI interface of the application.
@@ -49,8 +49,8 @@ public class CommandLineArgs {
 
   @Parameter(names = {"--metrics-endpoint", "-m"}, required = false,
       description = "Address of Prometheus metrics gateway (format: Hostname:Port)",
-      converter = URIConverter.class)
-  URI metricsEndpoint;
+      converter = URLConverter.class)
+  URL metricsEndpoint;
 
   @Parameter(names = {"--help", "-h"}, description = "Display usage")
   boolean isHelpCommand = false;

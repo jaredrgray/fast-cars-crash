@@ -31,8 +31,8 @@ import com.tesla.interview.tests.InterviewTestCase;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.prometheus.client.CollectorRegistry;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashSet;
@@ -58,7 +58,7 @@ public class TestInteviewApplication extends InterviewTestCase {
   private static final Logger LOG;
   private static final int VALID_QUEUE_SIZE;
   private static final Duration VALID_POLL_DURATION;
-  private static final URI VALID_ENDPOINT;
+  private static final URL VALID_ENDPOINT;
   private static final Supplier<CollectorRegistry> REGISTRY_SUPPLIER;
 
   static {
@@ -66,9 +66,9 @@ public class TestInteviewApplication extends InterviewTestCase {
       LOG = getLogger(TestInteviewApplication.class);
       VALID_QUEUE_SIZE = 1;
       VALID_POLL_DURATION = Duration.ofSeconds(1);
-      VALID_ENDPOINT = new URI("http://127.0.0.1:1234");
+      VALID_ENDPOINT = new URL("http://127.0.0.1:1234");
       REGISTRY_SUPPLIER = () -> new CollectorRegistry();
-    } catch (URISyntaxException e) {
+    } catch (MalformedURLException e) {
       throw new IllegalStateException("unexpected syntax error");
     }
   }
@@ -126,7 +126,7 @@ public class TestInteviewApplication extends InterviewTestCase {
     Pair<String> inputFilePath = new Pair<>("valid", null /* invalid */);
     Pair<Integer> queueSize = new Pair<>(10, -1);
     Pair<Duration> pollDuration = new Pair<>(VALID_POLL_DURATION, null);
-    Pair<URI> metricsEndpoint = new Pair<>(VALID_ENDPOINT, null);
+    Pair<URL> metricsEndpoint = new Pair<>(VALID_ENDPOINT, null);
     Pair<Supplier<CollectorRegistry>> metricsRegistry = new Pair<>(REGISTRY_SUPPLIER, null);
 
     String methodName = "testConstructorFailsOnInvalidInputs";

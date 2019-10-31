@@ -18,6 +18,7 @@ import static com.tesla.interview.application.ApplicationTools.logTrace;
 import static java.lang.Math.ceil;
 import static java.lang.Math.floorMod;
 import static org.apache.logging.log4j.LogManager.getLogger;
+
 import com.google.common.collect.Maps;
 import com.tesla.interview.application.AsynchronousWriter.WriteTask;
 import com.tesla.interview.io.MeasurementSampleReader;
@@ -25,16 +26,20 @@ import com.tesla.interview.model.AggregateSample;
 import com.tesla.interview.model.MeasurementSample;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.prometheus.client.CollectorRegistry;
+import io.prometheus.client.exporter.PushGateway;
 import java.io.File;
-import java.net.URI;
+import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -54,6 +59,10 @@ import org.apache.logging.log4j.Logger;
  * a series of {@link WriteTask}s to write the resulting aggregation to an output file.
  */
 public class InterviewApplication implements Callable<Void> {
+
+  private static final String THREAD_NUM = "thread_num";
+  private static final String INSTANCE = "instance";
+  private static final String JOB_NAME = "inteview_application_call";
 
   /**
    * Wait for all write tasks spawned by the {@link InterviewApplication#producer}.
@@ -279,6 +288,8 @@ public class InterviewApplication implements Callable<Void> {
   private final TaskConsumer consumer = new TaskConsumer();
   private final TaskProducer producer = new TaskProducer();
   private final ExecutorService executor = Executors.newFixedThreadPool(2 /* nThreads */);
+  private final Map<String, CollectorRegistry> threadNameToRegistry;
+  private final String instanceId;
 
   final Map<Integer, Integer> partitionNumToThreadNo; // note: partitions indexed from 0
   final MeasurementSampleReader reader;
@@ -286,7 +297,7 @@ public class InterviewApplication implements Callable<Void> {
   final Map<Integer, AsynchronousWriter> threadNumToWriter;
   final Queue<Future<WriteTask>> pendingTasks;
   final Duration pollDuration;
-  final URI metricsEndpoint;
+  final URL metricsEndpoint;
   final Supplier<CollectorRegistry> registrySupplier;
 
   /**
@@ -300,8 +311,8 @@ public class InterviewApplication implements Callable<Void> {
    * @param pollDuration max. amount of time to wait between polls
    */
   public InterviewApplication(int numWriteThreads, int maxFileHandles, List<String> outputFilePaths,
-      String inputFilePath, int queueSize, Duration pollDuration, URI metricsEndpoint,
-      Supplier<CollectorRegistry> metricsRegistry) {
+      String inputFilePath, int queueSize, Duration pollDuration, URL metricsEndpoint,
+      Supplier<CollectorRegistry> registrySupplier) {
 
     /* BEGIN: validate input */
     if (numWriteThreads <= 0) {
@@ -338,7 +349,9 @@ public class InterviewApplication implements Callable<Void> {
     this.pendingTasks = new ArrayDeque<Future<WriteTask>>(maxNumTasks);
     this.pollDuration = pollDuration;
     this.metricsEndpoint = metricsEndpoint;
-    this.registrySupplier = metricsRegistry;
+    this.registrySupplier = registrySupplier;
+    this.instanceId = UUID.randomUUID().toString().replace("-", "g");
+    this.threadNameToRegistry = Maps.newHashMap();
 
     // construct the reader and list of write threads from validated input
     int maxPartitionsPerThread =
@@ -363,9 +376,14 @@ public class InterviewApplication implements Callable<Void> {
         partitionNumToPath.put(partitionNo, ourPath);
         partitionNumToThreadNo.put(partitionNo, threadNo);
       }
-      new CollectorRegistry();
+      
+      // prepare metric emission
+      CollectorRegistry metricsRegistry = registrySupplier.get();
+      threadNameToRegistry.put(String.valueOf(threadNo), metricsRegistry);
+      
+      // build writers
       AsynchronousWriter writer =
-          new AsynchronousWriter(numWriteThreads, partitionNumToPath, metricsRegistry.get());
+          new AsynchronousWriter(numWriteThreads, partitionNumToPath, metricsRegistry);
       writer.startScheduler();
       threadNumToWriter.put(threadNo, writer);
     }
@@ -390,7 +408,7 @@ public class InterviewApplication implements Callable<Void> {
       Queue<Future<WriteTask>> taskQueue, //
       int maxQueueSize, //
       Duration pollDuration, //
-      URI metricsEndpoint, //
+      URL metricsEndpoint, //
       Supplier<CollectorRegistry> registrySupplier) {
 
     this.partitionNumToThreadNo = partitionNoToThreadNo;
@@ -401,6 +419,8 @@ public class InterviewApplication implements Callable<Void> {
     this.pollDuration = pollDuration;
     this.metricsEndpoint = metricsEndpoint;
     this.registrySupplier = registrySupplier;
+    this.threadNameToRegistry = Maps.newHashMap();
+    this.instanceId = "instanceId";
   }
 
   @Override
@@ -427,7 +447,7 @@ public class InterviewApplication implements Callable<Void> {
       throw new IllegalStateException("unexpected error", e);
     }
 
-    // tidy the room
+    // tidy up
     LOG.info("stopping application");
     reader.close();
     executor.shutdownNow();
@@ -435,9 +455,29 @@ public class InterviewApplication implements Callable<Void> {
       writer.close();
     }
 
+    // emit all metrics
+    if (metricsEndpoint != null) {
+      String urlToString = urlToString(metricsEndpoint);
+      PushGateway pg = new PushGateway(urlToString);
+      for (Entry<String, CollectorRegistry> entry : threadNameToRegistry.entrySet()) {
+        try {
+          Map<String, String> groupingKey = Maps.newHashMap();
+          groupingKey.put(INSTANCE, instanceId);
+          groupingKey.put(THREAD_NUM, entry.getKey());
+          pg.pushAdd(entry.getValue(), JOB_NAME, groupingKey);
+        } catch (IOException e) {
+          throw new IllegalStateException("failed to emit metrics", e);
+        }
+      }
+    }
+
     // all done!
     LOG.info("application stopped");
     return null;
+  }
+
+  private static String urlToString(URL url) {
+    return String.format("%s:%s%s", url.getHost(), url.getPort(), url.getPath());
   }
 
   private Instant randomizedPrintTime() {

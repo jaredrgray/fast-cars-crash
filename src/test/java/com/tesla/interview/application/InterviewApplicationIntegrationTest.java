@@ -33,8 +33,8 @@ import com.tesla.interview.tests.InterviewTestCase;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.prometheus.client.CollectorRegistry;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -74,7 +74,7 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
   private static final int QUEUE_SIZE;
   private static final Duration POLL_DURATION;
   private static final Supplier<CollectorRegistry> REGISTRY_SUPPLIER;
-  private static final URI METRICS_ENDPOINT;
+  private static final URL METRICS_ENDPOINT;
 
   static {
     try {
@@ -82,8 +82,8 @@ class InterviewApplicationIntegrationTest extends InterviewTestCase {
       QUEUE_SIZE = 100;
       POLL_DURATION = Duration.ofSeconds(1);
       REGISTRY_SUPPLIER = () -> new CollectorRegistry();
-      METRICS_ENDPOINT = new URI("http://127.0.0.1:9090");
-    } catch (URISyntaxException e) {
+      METRICS_ENDPOINT = new URL("http://127.0.0.1:1234");
+    } catch (MalformedURLException e) {
       throw new IllegalStateException("unexpected syntax error", e);
     }
   }

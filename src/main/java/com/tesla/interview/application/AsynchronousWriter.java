@@ -23,7 +23,7 @@ import com.tesla.interview.io.AggregateSampleWriter;
 import com.tesla.interview.model.AggregateSample;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.prometheus.client.CollectorRegistry;
-import io.prometheus.client.Counter;
+import io.prometheus.client.Summary;
 import java.io.Closeable;
 import java.io.File;
 import java.nio.file.Paths;
@@ -40,6 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -70,11 +71,13 @@ public class AsynchronousWriter implements Closeable {
 
         // print status periodically
         if (Instant.now().isAfter(nextPrintTime)) {
+          completedWriteTasks.observe(numCompletedWriteTasks.get());
+          scheduledWriteTasks.observe(numScheduledWriteTasks.get());
           if (LOG.isInfoEnabled()) {
             StringBuilder message = new StringBuilder("progress -- ");
-            message.append(String.format("numWriteTasksScheduled: %s", scheduledWriteTasks.get()));
+            message.append(String.format("numWriteTasksScheduled: %s", numScheduledWriteTasks.get()));
             message.append(", ");
-            message.append(String.format("numCompleted: %s", completedWriteTasks.get()));
+            message.append(String.format("numCompletedWriteTasks: %s", numCompletedWriteTasks.get()));
             LOG.info(message.toString());
           }
           Duration randomizedWait =
@@ -142,7 +145,7 @@ public class AsynchronousWriter implements Closeable {
       AggregateSampleWriter writer = pathToWriter.getOrDefault(path, null /* defaultValue */);
       if (path != null && writer != null) {
         writer.writeSample(sample);
-        completedWriteTasks.inc();
+        numCompletedWriteTasks.incrementAndGet();
         return null /* success! */;
       } else {
         throw new IllegalArgumentException(
@@ -174,7 +177,7 @@ public class AsynchronousWriter implements Closeable {
      */
     void scheduledHook(Future<WriteTask> taskFuture) {
       if (scheduled.compareAndSet(null, taskFuture)) {
-        scheduledWriteTasks.inc();
+        numScheduledWriteTasks.incrementAndGet();
         awaitingThread.interrupt();
       } else {
         throw new IllegalStateException("task scheduled more than once");
@@ -194,7 +197,9 @@ public class AsynchronousWriter implements Closeable {
   final Queue<WriteTask> bufferedWrites;
   final Condition bufferHasRoom = bufferLock.newCondition();
   final Condition bufferHasTask = bufferLock.newCondition();
-  final AtomicBoolean isClosed = new AtomicBoolean(false);
+  final AtomicBoolean isClosed = new AtomicBoolean(false /* initialValue */);
+  final AtomicInteger numCompletedWriteTasks = new AtomicInteger(0 /* initialValue */);
+  final AtomicInteger numScheduledWriteTasks = new AtomicInteger(0 /* initialValue */);
 
   final int bufferSize;
   final ExecutorService executor;
@@ -203,9 +208,8 @@ public class AsynchronousWriter implements Closeable {
   final Map<String, AggregateSampleWriter> pathToWriter;
   final Duration pollDelay;
   final CollectorRegistry metricsRegistry;
-
-  final Counter completedWriteTasks;
-  final Counter scheduledWriteTasks;
+  final Summary completedWriteTasks;
+  final Summary scheduledWriteTasks;
 
   /**
    * Canonical constructor.
@@ -224,7 +228,7 @@ public class AsynchronousWriter implements Closeable {
 
     LOG.info(String.format("initializing thread pool -- threadPoolSize: %d", threadPoolSize));
     this.executor = Executors.newFixedThreadPool(threadPoolSize);
-    LOG.info("thread pool initialzied");
+    LOG.info("thread pool initialized");
 
     this.partitionNumToPath = partitionNoToPath;
     this.writers = Lists.newArrayList();
@@ -234,9 +238,9 @@ public class AsynchronousWriter implements Closeable {
     this.metricsRegistry = metricsRegistry;
     this.maxWaitDuration = DEFAULT_MAX_WAIT;
     this.pollDelay = DEFAULT_POLL_DELAY;
-    this.completedWriteTasks = Counter.build().name("completedWriteTasks")
-        .help("write tasks scheduled").register(metricsRegistry);
-    this.scheduledWriteTasks = Counter.build().name("scheduledWriteTasks")
+    this.completedWriteTasks = Summary.build().name("completedWriteTasks")
+        .help("write tasks completed").register(metricsRegistry);
+    this.scheduledWriteTasks = Summary.build().name("scheduledWriteTasks")
         .help("write tasks scheduled").register(metricsRegistry);
 
     // open files and track association between partition number and output file
@@ -283,9 +287,9 @@ public class AsynchronousWriter implements Closeable {
     this.pollDelay = pollDelay;
     this.bufferSize = bufferSize;
     this.metricsRegistry = metricsRegistry;
-    this.completedWriteTasks = Counter.build().name("completedWriteTasks")
-        .help("write tasks scheduled").register(metricsRegistry);
-    this.scheduledWriteTasks = Counter.build().name("scheduledWriteTasks")
+    this.completedWriteTasks = Summary.build().name("completedWriteTasks")
+        .help("write tasks completed").register(metricsRegistry);
+    this.scheduledWriteTasks = Summary.build().name("scheduledWriteTasks")
         .help("write tasks scheduled").register(metricsRegistry);
   }
 
@@ -329,6 +333,7 @@ public class AsynchronousWriter implements Closeable {
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
         }
+
         return null;
       };
       Duration schedulerWaitDuration = bestEffortWait(maxWaitDuration, isAlive, waitFun);

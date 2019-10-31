@@ -96,11 +96,11 @@ dependencies {
     implementation 'com.beust:jcommander:1.78'
     implementation 'com.google.guava:guava:28.1-jre'
     implementation 'com.github.spotbugs:spotbugs-annotations:3.1.9'
-    implementation 'io.prometheus:simpleclient:0.7.0'
-    implementation 'io.prometheus:simpleclient_pushgateway:0.7.0'
+    implementation 'io.prometheus:simpleclient:0.8.0'
+    implementation 'io.prometheus:simpleclient_pushgateway:0.8.0'
     implementation 'org.apache.logging.log4j:log4j-api:2.12.1'
     
-    runtimeOnly 'io.prometheus:simpleclient_log4j2:0.7.0'
+    runtimeOnly 'io.prometheus:simpleclient_log4j2:0.8.0'
     runtimeOnly 'org.apache.logging.log4j:log4j-core:2.12.1'
     
     testImplementation 'org.apache.logging.log4j:log4j-api:2.12.1'
